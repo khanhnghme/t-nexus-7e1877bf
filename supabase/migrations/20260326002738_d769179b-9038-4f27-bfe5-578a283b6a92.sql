@@ -1,0 +1,1 @@
+UPDATE profiles SET institution = 'Đại học Kinh tế TP.HCM' WHERE student_id = '31241570562';

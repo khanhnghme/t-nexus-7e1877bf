@@ -1,0 +1,1 @@
+CREATE POLICY "Users can update own dismissals" ON public.notification_dismissals FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);

@@ -1,0 +1,11 @@
+project_id = "xrlczmzgxlmdavhbwsah"
+
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.public-task-files]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.email-digest]
+    verify_jwt = false

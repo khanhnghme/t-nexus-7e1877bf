@@ -1,0 +1,1 @@
+ALTER TABLE public.user_streaks ADD COLUMN recovery_count integer NOT NULL DEFAULT 0;

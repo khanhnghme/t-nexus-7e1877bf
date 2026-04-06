@@ -1,0 +1,1 @@
+CREATE POLICY "Admins can delete system notifications" ON public.system_notifications FOR DELETE TO authenticated USING (is_admin(auth.uid()));

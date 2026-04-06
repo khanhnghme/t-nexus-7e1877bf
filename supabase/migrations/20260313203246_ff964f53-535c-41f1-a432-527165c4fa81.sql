@@ -1,0 +1,1 @@
+CREATE POLICY "Admins can delete notification dismissals" ON public.notification_dismissals FOR DELETE TO authenticated USING (is_admin(auth.uid()));

@@ -1,0 +1,25 @@
+{
+  "name": "T-Nexus",
+  "short_name": "T-Nexus",
+  "description": "Hệ thống quản lý công việc nhóm dành cho sinh viên",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#00363a",
+  "theme_color": "#00363a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

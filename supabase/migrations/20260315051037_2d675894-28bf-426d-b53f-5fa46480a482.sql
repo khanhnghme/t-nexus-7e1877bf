@@ -1,0 +1,1 @@
+ALTER TABLE public.score_appeals ADD COLUMN final_score_id uuid REFERENCES public.member_final_scores(id) ON DELETE CASCADE DEFAULT NULL;

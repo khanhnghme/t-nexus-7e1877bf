@@ -1,0 +1,1 @@
+ALTER TABLE public.groups ALTER COLUMN activity_logging_enabled SET DEFAULT false;

@@ -1,0 +1,486 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { X, Mail, Clock, ChevronRight, User, Calendar, Eye, Shield, BellRing } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
+
+const MAX_POPUP_VIEWS = 5;
+const LS_KEY = 'mn_view_counts';
+
+interface Notification {
+  id: string;
+  title: string;
+  content: string;
+  display_mode: string;
+  min_view_seconds: number;
+  expires_at: string | null;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  target_user_ids: string[] | null;
+}
+
+interface ViewRecord {
+  count: number;
+  hash: string; // updated_at as fingerprint — changes when admin edits
+}
+
+interface MandatoryNotificationProps {
+  mode: 'pre_login' | 'post_login';
+  userId?: string;
+}
+
+function getViewCounts(): Record<string, ViewRecord> {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function setViewCounts(data: Record<string, ViewRecord>) {
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
+function getViewCount(notifId: string, updatedAt: string): number {
+  const all = getViewCounts();
+  const rec = all[notifId];
+  if (!rec || rec.hash !== updatedAt) return 0; // reset if content changed
+  return rec.count;
+}
+
+function incrementViewCount(notifId: string, updatedAt: string) {
+  const all = getViewCounts();
+  const rec = all[notifId];
+  if (!rec || rec.hash !== updatedAt) {
+    all[notifId] = { count: 1, hash: updatedAt };
+  } else {
+    all[notifId] = { count: rec.count + 1, hash: updatedAt };
+  }
+  setViewCounts(all);
+}
+
+export default function MandatoryNotification({ mode, userId }: MandatoryNotificationProps) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [senderNames, setSenderNames] = useState<Record<string, string>>({});
+  const [dbViewCounts, setDbViewCounts] = useState<Record<string, number>>({});
+
+  const getSessionId = useCallback(() => {
+    let sid = sessionStorage.getItem('mn_session_id');
+    if (!sid) {
+      sid = crypto.randomUUID();
+      sessionStorage.setItem('mn_session_id', sid);
+    }
+    return sid;
+  }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const now = new Date().toISOString();
+
+      const { data } = await supabase
+        .from('system_notifications')
+        .select('*')
+        .eq('is_active', true)
+        .eq('display_mode', mode)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .order('created_at', { ascending: false });
+
+      if (!data || data.length === 0) return;
+
+      // For post_login with userId, fetch all dismissal records for this user
+      const userDismissalCounts: Record<string, number> = {};
+      if (mode === 'post_login' && userId) {
+        const notifIds = (data as Notification[]).map(n => n.id);
+        const { data: dismissals } = await supabase
+          .from('notification_dismissals')
+          .select('notification_id, view_count')
+          .eq('user_id', userId)
+          .in('notification_id', notifIds);
+        if (dismissals) {
+          dismissals.forEach(d => {
+            userDismissalCounts[d.notification_id] = d.view_count ?? 1;
+          });
+        }
+        setDbViewCounts(userDismissalCounts);
+      }
+
+      const undismissed: Notification[] = [];
+      for (const notif of data as Notification[]) {
+        // For post_login mode: check if this notification targets specific users
+        if (mode === 'post_login' && Array.isArray(notif.target_user_ids) && notif.target_user_ids.length > 0) {
+          if (!userId || !notif.target_user_ids.includes(userId)) continue;
+        }
+
+        // For post_login with userId: use DB-based view count
+        if (mode === 'post_login' && userId) {
+          const dbCount = userDismissalCounts[notif.id] || 0;
+          if (dbCount >= MAX_POPUP_VIEWS) continue; // fully hidden after 5 views
+          undismissed.push(notif);
+          continue;
+        }
+
+        // For pre_login: use localStorage-based view count
+        const viewCount = getViewCount(notif.id, notif.updated_at);
+        
+        if (viewCount >= MAX_POPUP_VIEWS) {
+          let isPermanentlyDismissed = false;
+          const sessionId = getSessionId();
+          const { data: d } = await supabase
+            .from('notification_dismissals')
+            .select('id')
+            .eq('notification_id', notif.id)
+            .eq('session_id', sessionId)
+            .maybeSingle();
+          isPermanentlyDismissed = !!d;
+          if (isPermanentlyDismissed) continue;
+        }
+        
+        undismissed.push(notif);
+      }
+
+      setNotifications(undismissed);
+
+      // Fetch sender names
+      const creatorIds = [...new Set(undismissed.map(n => n.created_by))];
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', creatorIds);
+        if (profiles) {
+          const map: Record<string, string> = {};
+          profiles.forEach(p => { map[p.id] = p.full_name; });
+          setSenderNames(map);
+        }
+      }
+    };
+
+    fetchNotifications();
+  }, [mode, userId, getSessionId]);
+
+  // Helper to get effective view count (DB-based for post_login, localStorage for pre_login)
+  const getEffectiveViewCount = useCallback((notifId: string, updatedAt: string) => {
+    if (mode === 'post_login' && userId) {
+      return dbViewCounts[notifId] || 0;
+    }
+    return getViewCount(notifId, updatedAt);
+  }, [mode, userId, dbViewCounts]);
+
+  // Auto-expand first popup notification (mandatory — no user click needed)
+  useEffect(() => {
+    if (expandedId) return; // already viewing one
+    const firstPopup = notifications.find(n => !dismissed.has(n.id) && getEffectiveViewCount(n.id, n.updated_at) < MAX_POPUP_VIEWS);
+    if (firstPopup) {
+      setExpandedId(firstPopup.id);
+      if (countdowns[firstPopup.id] === undefined) {
+        setCountdowns(prev => ({ ...prev, [firstPopup.id]: firstPopup.min_view_seconds }));
+      }
+    }
+  }, [notifications, dismissed, expandedId, getEffectiveViewCount]);
+
+  // Countdown for expanded notification
+  useEffect(() => {
+    if (!expandedId) return;
+    const current = countdowns[expandedId];
+    if (current === undefined || current <= 0) return;
+
+    const timer = setInterval(() => {
+      setCountdowns(prev => {
+        const val = (prev[expandedId] ?? 0) - 1;
+        if (val <= 0) {
+          clearInterval(timer);
+          return { ...prev, [expandedId]: 0 };
+        }
+        return { ...prev, [expandedId]: val };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [expandedId, countdowns[expandedId]]);
+
+  const handleExpand = (notifId: string) => {
+    setExpandedId(notifId);
+    const notif = notifications.find(n => n.id === notifId);
+    if (notif && countdowns[notifId] === undefined) {
+      setCountdowns(prev => ({ ...prev, [notifId]: notif.min_view_seconds }));
+    }
+  };
+
+  const handleDismiss = async (notifId: string) => {
+    const notif = notifications.find(n => n.id === notifId);
+    if (notif) {
+      if (mode === 'post_login' && userId) {
+        // DB-based view counting for authenticated users
+        const currentCount = dbViewCounts[notifId] || 0;
+        const newCount = currentCount + 1;
+        
+        if (currentCount === 0) {
+          // First view — insert
+          await supabase.from('notification_dismissals').insert([{
+            notification_id: notifId,
+            user_id: userId,
+            view_count: 1,
+          }]);
+        } else {
+          // Increment view_count
+          await supabase
+            .from('notification_dismissals')
+            .update({ view_count: newCount })
+            .eq('notification_id', notifId)
+            .eq('user_id', userId);
+        }
+        
+        setDbViewCounts(prev => ({ ...prev, [notifId]: newCount }));
+        
+        // If reached max, remove from notifications list entirely
+        if (newCount >= MAX_POPUP_VIEWS) {
+          setNotifications(prev => prev.filter(n => n.id !== notifId));
+        }
+      } else {
+        // localStorage-based for pre_login
+        incrementViewCount(notifId, notif.updated_at);
+        const newCount = getViewCount(notifId, notif.updated_at);
+        
+        if (newCount >= MAX_POPUP_VIEWS) {
+          const dismissal: any = { notification_id: notifId };
+          dismissal.session_id = getSessionId();
+          await supabase.from('notification_dismissals').insert([dismissal]);
+        }
+      }
+    }
+
+    setDismissed(prev => new Set([...prev, notifId]));
+    if (expandedId === notifId) setExpandedId(null);
+  };
+
+  const activeNotifications = notifications.filter(n => !dismissed.has(n.id));
+  if (activeNotifications.length === 0) return null;
+
+  // Split into popup notifications (< 5 views) and corner-only (>= 5 views)
+  const popupNotifications = activeNotifications.filter(n => getEffectiveViewCount(n.id, n.updated_at) < MAX_POPUP_VIEWS);
+  const cornerNotifications = activeNotifications.filter(n => getEffectiveViewCount(n.id, n.updated_at) >= MAX_POPUP_VIEWS);
+
+  const expandedNotif = expandedId ? activeNotifications.find(n => n.id === expandedId) : null;
+  const canClose = expandedId ? (countdowns[expandedId] ?? 1) <= 0 : false;
+  const countdown = expandedId ? (countdowns[expandedId] ?? 0) : 0;
+
+  return (
+    <>
+      {/* ════ Popup list for notifications with < 5 views ════ */}
+      {!expandedNotif && popupNotifications.length > 0 && (
+        <div className="fixed bottom-20 right-4 z-[100] w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300">
+          <div className="rounded-2xl shadow-2xl overflow-hidden border border-border bg-card">
+            {/* Accent top bar */}
+            <div className="h-1" style={{ background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(36 85% 52%), hsl(var(--primary)))' }} />
+            <div className="px-4 py-3 flex items-center gap-2 border-b border-border">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(36 85% 52%), hsl(25 80% 48%))' }}>
+                <Mail className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="text-sm font-bold text-foreground">
+                Thông báo bắt buộc ({popupNotifications.length})
+              </span>
+            </div>
+            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+              {popupNotifications.map(notif => {
+                const views = getViewCount(notif.id, notif.updated_at);
+                return (
+                  <button
+                    key={notif.id}
+                    className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-center justify-between gap-2"
+                    onClick={() => handleExpand(notif.id)}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'hsl(36 85% 52%)' }} />
+                      <span className="text-sm font-medium text-foreground truncate">{notif.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-muted-foreground">{views + 1}/{MAX_POPUP_VIEWS}</span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ Corner badge for notifications with >= 5 views ════ */}
+      {!expandedNotif && cornerNotifications.length > 0 && popupNotifications.length === 0 && (
+        <div className="fixed top-[6.25rem] z-[90] animate-in slide-in-from-top-2 duration-300 right-4 2xl:right-[calc((100vw-1400px)/2+1rem)]"
+          style={{ maxWidth: 'calc(100vw - 2rem)' }}>
+          <style>{`
+            @keyframes bell-ring {
+              0% { transform: rotate(0deg); }
+              10% { transform: rotate(14deg); }
+              20% { transform: rotate(-12deg); }
+              30% { transform: rotate(10deg); }
+              40% { transform: rotate(-8deg); }
+              50% { transform: rotate(5deg); }
+              60% { transform: rotate(-3deg); }
+              70% { transform: rotate(0deg); }
+              100% { transform: rotate(0deg); }
+            }
+          `}</style>
+          <button
+            className="relative flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
+            onClick={() => handleExpand(cornerNotifications[0].id)}
+          >
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(36 85% 52%), hsl(25 80% 48%))' }}>
+              <BellRing className="w-4 h-4 text-white" style={{ animation: 'bell-ring 1.5s ease-in-out infinite' }} />
+            </div>
+            <span className="text-xs font-medium text-foreground max-w-[150px] truncate">
+              {cornerNotifications.length === 1 ? cornerNotifications[0].title : `${cornerNotifications.length} thông báo`}
+            </span>
+            {cornerNotifications.length > 1 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow" style={{ background: 'hsl(36 85% 52%)' }}>
+                {cornerNotifications.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* ════ Expanded detail — letter style ════ */}
+      {expandedNotif && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative w-full max-w-2xl mx-4 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            
+            {/* Header — gradient with pattern */}
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(36 80% 48%), hsl(25 75% 45%))' }} />
+              <div
+                className="absolute inset-0 opacity-[0.06]"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M20 20h20v20H20z' fill-opacity='.1'/%3E%3Cpath d='M0 0h20v20H0z' fill-opacity='.1'/%3E%3C/g%3E%3C/svg%3E")`,
+                }}
+              />
+              <div className="relative px-6 py-5 flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/20">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-bold text-white leading-snug">{expandedNotif.title}</h2>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-white/70">
+                    <span className="inline-flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {senderNames[expandedNotif.created_by] || 'Quản trị viên'}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {format(new Date(expandedNotif.created_at), "HH:mm — dd/MM/yyyy", { locale: vi })}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      Yêu cầu xem {expandedNotif.min_view_seconds}s
+                    </span>
+                    {expandedNotif.expires_at && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Hết hạn {format(new Date(expandedNotif.expires_at), "dd/MM/yyyy", { locale: vi })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all shrink-0 ${
+                    !canClose ? 'opacity-20 cursor-not-allowed' : ''
+                  }`}
+                  disabled={!canClose}
+                  onClick={() => handleDismiss(expandedNotif.id)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Sender badge bar */}
+            <div className="px-6 py-2.5 border-b border-border bg-muted/30 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  Thông báo từ Ban quản trị hệ thống — Bắt buộc đọc
+                </span>
+              </div>
+              {(() => {
+                const views = getViewCount(expandedNotif.id, expandedNotif.updated_at);
+                return views < MAX_POPUP_VIEWS ? (
+                  <span className="text-[10px] text-muted-foreground/60">
+                    Lần xem {views + 1}/{MAX_POPUP_VIEWS}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 max-h-[45vh] overflow-y-auto">
+              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-primary prose-a:text-accent prose-strong:text-foreground">
+                <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>
+                  {expandedNotif.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-muted/30 border-t border-border flex items-center justify-between">
+              {!canClose ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 text-primary animate-pulse" />
+                    <span>Vui lòng đọc hết nội dung</span>
+                  </div>
+                  <div className="relative w-9 h-9">
+                    <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+                      <circle
+                        cx="18" cy="18" r="15" fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(1 - countdown / expandedNotif.min_view_seconds) * 94.2} 94.2`}
+                        className="transition-all duration-1000 ease-linear"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-primary">
+                      {countdown}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  ✅ Bạn có thể đóng thông báo này
+                </p>
+              )}
+              <div className="flex gap-2">
+                {canClose && popupNotifications.length > 1 && (
+                  <Button variant="outline" size="sm" onClick={() => setExpandedId(null)}>
+                    Quay lại
+                  </Button>
+                )}
+                <Button
+                  onClick={() => handleDismiss(expandedNotif.id)}
+                  disabled={!canClose}
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  {canClose ? (
+                    <>✓ Đã đọc xong</>
+                  ) : (
+                    <>Chờ {countdown}s</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

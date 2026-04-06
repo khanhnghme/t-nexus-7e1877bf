@@ -1,0 +1,211 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const SITE_NAME = "T-Nexus";
+const SENDER_DOMAIN = "notify.uehers.teamworks";
+const FROM_DOMAIN = "notify.uehers.teamworks";
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const body = await req.json();
+    const { action, email, code, new_password } = body;
+
+    // ===== SEND OTP CODE =====
+    if (action === "send_code") {
+      if (!email) {
+        return jsonResponse({ error: "Email is required" }, 400);
+      }
+
+      // Generate 6-digit code
+      const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      // Invalidate old codes
+      await supabase
+        .from("password_reset_codes")
+        .update({ used: true })
+        .eq("email", email.toLowerCase())
+        .eq("used", false);
+
+      // Store new code
+      await supabase.from("password_reset_codes").insert({
+        email: email.toLowerCase(),
+        code: otpCode,
+        expires_at: expiresAt,
+      });
+
+      // Build OTP email HTML
+      const otpHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:'Be Vietnam Pro','Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <tr><td style="background-color:hsl(183,100%,21%);padding:24px 32px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">T-Nexus</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h2 style="margin:0 0 8px;color:hsl(220,20%,10%);font-size:18px;font-weight:600;">Đặt lại mật khẩu</h2>
+          <p style="margin:0 0 24px;color:hsl(220,9%,46%);font-size:14px;line-height:1.6;">
+            Mã xác minh có hiệu lực trong <strong>10 phút</strong>.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:16px 0;">
+            <div style="display:inline-block;background-color:#f4f4f5;border:2px dashed #d4d4d8;border-radius:12px;padding:20px 40px;">
+              <span style="font-size:36px;font-weight:800;letter-spacing:8px;color:hsl(220,20%,10%);font-family:'Courier New',monospace;">${otpCode}</span>
+            </div>
+          </td></tr></table>
+          <p style="margin:24px 0 0;color:#a1a1aa;font-size:12px;text-align:center;">
+            Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+          </p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background-color:#fafafa;border-top:1px solid #f4f4f5;text-align:center;">
+          <p style="margin:0;color:#a1a1aa;font-size:11px;">© ${new Date().getFullYear()} T-Nexus</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+      // Enqueue email via Lovable email queue
+      const messageId = crypto.randomUUID();
+      
+      await supabase.from('email_send_log').insert({
+        message_id: messageId,
+        template_name: 'password_reset_otp',
+        recipient_email: email.toLowerCase(),
+        status: 'pending',
+      });
+
+      const { error: enqueueError } = await supabase.rpc('enqueue_email', {
+        queue_name: 'auth_emails',
+        payload: {
+          message_id: messageId,
+          to: email.toLowerCase(),
+          subject: `Mã xác minh đặt lại mật khẩu: ${otpCode}`,
+          html: otpHtml,
+          text: `Mã xác minh đặt lại mật khẩu của bạn là: ${otpCode}. Mã có hiệu lực trong 10 phút.`,
+          purpose: 'transactional',
+          label: 'password_reset_otp',
+          idempotency_key: `password-reset-otp-${messageId}`,
+          queued_at: new Date().toISOString(),
+        },
+      });
+
+      if (enqueueError) {
+        console.error("Failed to enqueue OTP email:", enqueueError);
+      }
+
+      // Always return success - never expose OTP code to client
+      return jsonResponse({
+        success: true,
+        message: "Mã xác minh đã được gửi đến email của bạn",
+      });
+    }
+
+    // ===== VERIFY CODE =====
+    if (action === "verify_code") {
+      if (!email || !code) {
+        return jsonResponse({ error: "Email and code are required" }, 400);
+      }
+
+      const { data: codeData } = await supabase
+        .from("password_reset_codes")
+        .select("*")
+        .eq("email", email.toLowerCase())
+        .eq("code", code)
+        .eq("used", false)
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!codeData) {
+        return jsonResponse({ error: "Mã xác minh không đúng hoặc đã hết hạn" }, 400);
+      }
+
+      return jsonResponse({ success: true, verified: true });
+    }
+
+    // ===== RESET PASSWORD =====
+    if (action === "reset_password") {
+      if (!email || !code || !new_password) {
+        return jsonResponse({ error: "Missing required fields" }, 400);
+      }
+
+      if (new_password.length < 6) {
+        return jsonResponse({ error: "Mật khẩu tối thiểu 6 ký tự" }, 400);
+      }
+
+      const { data: codeData } = await supabase
+        .from("password_reset_codes")
+        .select("*")
+        .eq("email", email.toLowerCase())
+        .eq("code", code)
+        .eq("used", false)
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!codeData) {
+        return jsonResponse({ error: "Mã xác minh không hợp lệ hoặc đã hết hạn" }, 400);
+      }
+
+      const { data: usersData } = await supabase.auth.admin.listUsers();
+      const targetUser = usersData?.users?.find(
+        (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!targetUser) {
+        return jsonResponse({ error: "Không tìm thấy tài khoản" }, 404);
+      }
+
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        targetUser.id,
+        { password: new_password }
+      );
+
+      if (updateError) {
+        return jsonResponse({ error: updateError.message }, 500);
+      }
+
+      await supabase
+        .from("password_reset_codes")
+        .update({ used: true })
+        .eq("id", codeData.id);
+
+      return jsonResponse({ success: true, message: "Mật khẩu đã được đặt lại thành công" });
+    }
+
+    return jsonResponse({ error: "Invalid action" }, 400);
+  } catch (err) {
+    console.error("Edge function error:", err);
+    return jsonResponse({ error: (err as Error).message }, 500);
+  }
+});
+
+function jsonResponse(data: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}

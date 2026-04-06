@@ -1,0 +1,1 @@
+ALTER TABLE public.notification_dismissals ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 1;

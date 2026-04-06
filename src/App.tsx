@@ -1,0 +1,180 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { DashboardLayoutProvider, useDashboardLayoutContext } from "@/contexts/DashboardLayoutContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { NavigationProvider } from "@/contexts/NavigationContext";
+import { FilePreviewProvider } from "@/contexts/FilePreviewContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { AnimationProvider } from "@/contexts/AnimationContext";
+import { MusicProvider } from "@/contexts/MusicContext";
+
+import { supabase } from "@/integrations/supabase/client";
+import PageTransition from "@/components/PageTransition";
+import LoadingScreen from "@/components/LoadingScreen";
+import SplashScreen from "@/components/SplashScreen";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import Landing from "./pages/Landing";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
+import MemberManagement from "./pages/MemberManagement";
+import Feedback from "./pages/Feedback";
+import NotFound from "./pages/NotFound";
+import AdminActivity from "./pages/AdminActivity";
+import AdminBackup from "./pages/AdminBackup";
+import AdminSystem from "./pages/AdminSystem";
+import Communication from "./pages/Communication";
+import PublicProjectView from "./pages/PublicProjectView";
+import FilePreview from "./pages/FilePreview";
+import PersonalInfo from "./pages/PersonalInfo";
+import ResetPassword from "./pages/ResetPassword";
+import Utilities from "./pages/Utilities";
+import PublicProfile from "./pages/PublicProfile";
+import PublicTaskPreview from "./pages/PublicTaskPreview";
+import CalendarPage from "./pages/Calendar";
+import Tips from "./pages/Tips";
+import DownloadPage from "./pages/Download";
+import Pricing from "./pages/Pricing";
+
+const queryClient = new QueryClient();
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading, isApproved, profile } = useAuth();
+  if (isLoading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (profile && !profile.is_approved) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
+function ProtectedLayoutInner() {
+  const { projectInfo } = useDashboardLayoutContext();
+  return (
+    <DashboardLayout 
+      useOutlet 
+      projectId={projectInfo.projectId} 
+      projectName={projectInfo.projectName} 
+      zaloLink={projectInfo.zaloLink} 
+    />
+  );
+}
+
+function ProtectedLayout() {
+  const { user, isLoading, profile } = useAuth();
+  if (isLoading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (profile && !profile.is_approved) return <Navigate to="/auth" replace />;
+  return (
+    <DashboardLayoutProvider>
+      <ProtectedLayoutInner />
+    </DashboardLayoutProvider>
+  );
+}
+
+function AppRoutes() {
+  const recoveryHash = typeof window !== "undefined" ? window.location.hash : "";
+  
+  // Handle recovery links → redirect to reset password
+  const shouldRedirectRecovery =
+    typeof window !== "undefined" &&
+    window.location.pathname === "/" &&
+    recoveryHash.includes("type=recovery");
+
+  if (shouldRedirectRecovery) {
+    window.location.replace(`/reset-password${recoveryHash}`);
+    return null;
+  }
+
+  // Handle signup confirmation links → redirect to auth with verified flag
+  const shouldRedirectSignup =
+    typeof window !== "undefined" &&
+    window.location.pathname === "/" &&
+    recoveryHash.includes("type=signup");
+
+  if (shouldRedirectSignup) {
+    // Sign out to prevent auto-login, then redirect to success screen
+    supabase.auth.signOut({ scope: 'local' }).then(() => {
+      window.location.replace(`/auth?verified=true`);
+    });
+    return null;
+  }
+
+  return (
+    <PageTransition>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        {/* Public routes */}
+        <Route path="/project/:projectSlug/task/:taskSlug" element={<PublicTaskPreview />} />
+        <Route path="/project/:projectSlug" element={<PublicProjectView />} />
+        <Route path="/s/:shareToken" element={<PublicProjectView />} />
+        <Route path="/s/:shareToken/t/:taskSlug/f/:fileIndex" element={<FilePreview />} />
+        <Route path="/public/project/:shareToken" element={<PublicProjectView />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/download" element={<DownloadPage />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/member" element={<Navigate to="/auth" replace />} />
+        <Route path="/auth/admin" element={<Navigate to="/auth" replace />} />
+        <Route path="/u/:username" element={<PublicProfile />} />
+        {/* Legacy file preview */}
+        <Route path="/file-preview" element={<FilePreview />} />
+
+        {/* Protected routes with persistent DashboardLayout */}
+        <Route element={<ProtectedLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/groups" element={<Groups />} />
+          <Route path="/p/:projectSlug" element={<GroupDetail />} />
+          <Route path="/p/:projectSlug/t/:taskSlug" element={<GroupDetail />} />
+          <Route path="/p/:projectSlug/t/:taskSlug/f/:fileIndex" element={<ProtectedRoute><FilePreview /></ProtectedRoute>} />
+          <Route path="/groups/:groupId" element={<GroupDetail />} />
+          <Route path="/groups/:groupId/tasks/:taskId" element={<GroupDetail />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/communication" element={<Communication />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/personal-info" element={<PersonalInfo />} />
+          <Route path="/tips" element={<Tips />} />
+          <Route path="/members" element={<MemberManagement />} />
+          <Route path="/admin/activity" element={<AdminActivity />} />
+          <Route path="/admin/backup" element={<AdminBackup />} />
+          <Route path="/admin/system" element={<AdminSystem />} />
+          <Route path="/utilities" element={<Utilities />} />
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </PageTransition>
+  );
+}
+
+const App = () => {
+  return (
+    <ThemeProvider>
+      
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AuthProvider>
+                <MusicProvider>
+                  <AnimationProvider>
+                    <NavigationProvider>
+                      <FilePreviewProvider>
+                        <AppRoutes />
+                      </FilePreviewProvider>
+                    </NavigationProvider>
+                  </AnimationProvider>
+                </MusicProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      
+    </ThemeProvider>
+  );
+};
+
+export default App;

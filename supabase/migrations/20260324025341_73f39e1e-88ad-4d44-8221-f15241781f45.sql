@@ -1,0 +1,1 @@
+DELETE FROM public.system_error_logs;
