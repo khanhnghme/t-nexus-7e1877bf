@@ -904,6 +904,88 @@ html.no-animations *::after {
   animation: streak-flame-dance 1.2s ease-in-out infinite;
 }
 
+/* ========== Realistic Fire Burning Effect for Streak Icon ========== */
+@keyframes fire-burn-flicker {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) rotate(0deg);
+    filter: brightness(1) drop-shadow(0 0 3px rgba(255, 140, 0, 0.6)) drop-shadow(0 0 8px rgba(255, 80, 0, 0.3));
+  }
+  10% {
+    transform: scaleY(1.06) scaleX(0.96) rotate(-1deg);
+  }
+  20% {
+    transform: scaleY(0.97) scaleX(1.03) rotate(1.5deg);
+    filter: brightness(1.15) drop-shadow(0 0 5px rgba(255, 160, 0, 0.7)) drop-shadow(0 0 12px rgba(255, 60, 0, 0.4));
+  }
+  30% {
+    transform: scaleY(1.08) scaleX(0.95) rotate(-0.5deg);
+  }
+  40% {
+    transform: scaleY(0.96) scaleX(1.02) rotate(2deg);
+    filter: brightness(1.1) drop-shadow(0 0 4px rgba(255, 180, 0, 0.65)) drop-shadow(0 0 10px rgba(255, 70, 0, 0.35));
+  }
+  50% {
+    transform: scaleY(1.1) scaleX(0.94) rotate(-1.5deg);
+    filter: brightness(1.2) drop-shadow(0 0 6px rgba(255, 200, 0, 0.8)) drop-shadow(0 0 14px rgba(255, 80, 0, 0.5));
+  }
+  60% {
+    transform: scaleY(0.98) scaleX(1.01) rotate(1deg);
+  }
+  70% {
+    transform: scaleY(1.04) scaleX(0.97) rotate(-2deg);
+    filter: brightness(1.05) drop-shadow(0 0 4px rgba(255, 150, 0, 0.6)) drop-shadow(0 0 9px rgba(255, 50, 0, 0.3));
+  }
+  80% {
+    transform: scaleY(0.95) scaleX(1.04) rotate(0.5deg);
+    filter: brightness(1.18) drop-shadow(0 0 5px rgba(255, 190, 0, 0.75)) drop-shadow(0 0 12px rgba(255, 90, 0, 0.45));
+  }
+  90% {
+    transform: scaleY(1.07) scaleX(0.96) rotate(-1deg);
+  }
+}
+
+@keyframes fire-color-shift {
+  0%, 100% { color: #f97316; }
+  15% { color: #fb923c; }
+  30% { color: #f59e0b; }
+  45% { color: #ef4444; }
+  60% { color: #f97316; }
+  75% { color: #fbbf24; }
+  90% { color: #ea580c; }
+}
+
+@keyframes fire-inner-glow {
+  0%, 100% {
+    text-shadow: 0 0 4px rgba(255, 140, 0, 0.5), 0 -2px 6px rgba(255, 80, 0, 0.3);
+  }
+  25% {
+    text-shadow: 0 0 6px rgba(255, 180, 0, 0.7), 0 -3px 10px rgba(255, 60, 0, 0.4), 0 -5px 15px rgba(255, 0, 0, 0.15);
+  }
+  50% {
+    text-shadow: 0 0 8px rgba(255, 200, 0, 0.8), 0 -4px 12px rgba(255, 100, 0, 0.5), 0 -6px 20px rgba(255, 40, 0, 0.2);
+  }
+  75% {
+    text-shadow: 0 0 5px rgba(255, 160, 0, 0.6), 0 -2px 8px rgba(255, 90, 0, 0.35);
+  }
+}
+
+.streak-fire-burning {
+  animation:
+    fire-burn-flicker 0.8s ease-in-out infinite,
+    fire-color-shift 3s ease-in-out infinite;
+  transform-origin: bottom center;
+  will-change: transform, filter;
+}
+
+.streak-fire-burning-glow {
+  animation:
+    fire-burn-flicker 0.8s ease-in-out infinite 0.05s,
+    fire-inner-glow 1.5s ease-in-out infinite;
+  transform-origin: bottom center;
+  opacity: 0.4;
+  will-change: transform, filter;
+}
+
 /* ========== Login Transition ========== */
 @keyframes logo-bob {
 

@@ -143,28 +143,25 @@ export default function StreakBadge({
         <div className="flex items-center gap-1.5">
           <div className="relative w-6 h-6 flex items-center justify-center shrink-0">
             <FireParticles active={isActive || celebrating} count={Math.min(tier.particles, 5)} />
+            {/* Glow layer behind the flame */}
+            {(isActive || celebrating) && (
+              <Flame
+                className="w-5 h-5 absolute z-[5] streak-fire-burning-glow"
+                style={{ color: '#ff8c00' }}
+                fill="currentColor"
+              />
+            )}
             <Flame
               className={`w-5 h-5 relative z-10 transition-all ${
                 celebrating
-                  ? `drop-shadow-[0_0_8px_${colors.glow}] animate-bounce`
+                  ? 'streak-fire-burning animate-bounce'
                   : isActive
-                  ? `drop-shadow-[0_0_6px_${colors.glow}]`
+                  ? 'streak-fire-burning'
                   : canRecover ? 'text-red-400/60' : 'text-muted-foreground/40'
               }`}
-              style={isActive || celebrating ? { color: colors.from } : undefined}
-              fill={isActive || celebrating ? `url(#${gradientId})` : 'none'}
+              style={isActive || celebrating ? { color: '#f97316' } : undefined}
+              fill={isActive || celebrating ? 'currentColor' : 'none'}
             />
-            {(isActive || celebrating) && (
-              <svg width="0" height="0" className="absolute">
-                <defs>
-                  <linearGradient id={gradientId} x1="0%" y1="100%" x2="0%" y2="0%">
-                    <stop offset="0%" stopColor={colors.from} />
-                    <stop offset="50%" stopColor={colors.to} />
-                    <stop offset="100%" stopColor={colors.from} stopOpacity="0.7" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            )}
           </div>
           <span className="text-xl font-bold tabular-nums leading-none text-foreground">
             {currentStreak}
@@ -224,17 +221,19 @@ export default function StreakBadge({
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1 cursor-default select-none">
             <div className="relative">
-              <Flame
-                className={`w-5 h-5 transition-all ${
-                  isActive ? compactColor : canRecover ? 'text-red-400/60' : 'text-muted-foreground/50'
-                }`}
-                fill={isActive ? 'currentColor' : 'none'}
-              />
+              {/* Glow layer for compact */}
               {isActive && (
-                <div className="absolute inset-0 animate-pulse">
-                  <Flame className="w-5 h-5 opacity-40" style={{ color: colors.from }} fill="currentColor" />
+                <div className="absolute inset-0">
+                  <Flame className="w-5 h-5 streak-fire-burning-glow" style={{ color: '#ff8c00' }} fill="currentColor" />
                 </div>
               )}
+              <Flame
+                className={`w-5 h-5 transition-all ${
+                  isActive ? `${compactColor} streak-fire-burning` : canRecover ? 'text-red-400/60' : 'text-muted-foreground/50'
+                }`}
+                style={isActive ? { color: '#f97316' } : undefined}
+                fill={isActive ? 'currentColor' : 'none'}
+              />
             </div>
             <span className={`text-sm font-bold tabular-nums ${
               isActive
