@@ -19,7 +19,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import AdminDataMigration from '@/components/AdminDataMigration';
 import AdminMusicManager from '@/components/AdminMusicManager';
 import AdminUserAnalytics from '@/components/AdminUserAnalytics';
-import AdminApkManager from '@/components/AdminApkManager';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -330,7 +329,6 @@ export default function AdminSystem() {
               { id: 'system', label: 'Hệ thống', icon: Wrench },
               { id: 'notifications', label: 'Thông báo', icon: Mail },
               { id: 'appearance', label: 'Giao diện', icon: Palette },
-              { id: 'downloads', label: 'Tải xuống', icon: Smartphone },
               { id: 'analytics', label: 'Phân tích', icon: BarChart3 },
             ] as const).map((tab) => (
               <button
@@ -1006,12 +1004,6 @@ export default function AdminSystem() {
               {/* Background Music Manager */}
               <AdminMusicManager />
             </div>
-        )}
-        {/* ═══ TAB: Tải xuống ═══ */}
-        {activeTab === 'downloads' && (
-          <div>
-            <AdminApkManager />
-          </div>
         )}
         {/* ═══ TAB: Phân tích ═══ */}
         {activeTab === 'analytics' && (
