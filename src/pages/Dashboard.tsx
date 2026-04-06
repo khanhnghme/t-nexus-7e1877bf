@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import MandatoryNotification from '@/components/MandatoryNotification';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,8 +57,9 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import LoginTransitionScreen from '@/components/LoginTransitionScreen';
+
 import invitationIllustration from '@/assets/invitation-illustration.png';
+import { getDashboardPreloadCache, clearDashboardPreloadCache } from '@/hooks/useDashboardPreloader';
 import type { Group } from '@/types/database';
 
 const DEFAULT_PROJECT_LIMIT = 2;
@@ -91,19 +92,42 @@ interface PendingInvitation {
 export default function Dashboard() {
   const { user, profile, mustChangePassword, refreshProfile, isLeader, isAdmin } = useAuth();
   const streak = useLoginStreak(user?.id);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Check if preloaded data is available (prefetched during login transition)
+  const preloadCache = useRef(getDashboardPreloadCache());
+  const hasPreload = preloadCache.current !== null;
+
+  const [groups, setGroups] = useState<Group[]>(() =>
+    hasPreload ? (preloadCache.current!.groups as Group[]) : []
+  );
+  const [isLoading, setIsLoading] = useState(!hasPreload);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showInvitationDialog, setShowInvitationDialog] = useState(false);
-  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>(() =>
+    hasPreload ? (preloadCache.current!.pendingInvitations as PendingInvitation[]) : []
+  );
   const [processingInvitation, setProcessingInvitation] = useState<string | null>(null);
-  const [videoOpacity, setVideoOpacity] = useState(0);
-  const [videoUrl, setVideoUrl] = useState('');
-  const [videoEnabled, setVideoEnabled] = useState(false);
-  const [ownedProjectCount, setOwnedProjectCount] = useState(0);
-  const [joinedProjectCount, setJoinedProjectCount] = useState(0);
-  const [hiddenProjectIds, setHiddenProjectIds] = useState<Set<string>>(new Set());
-  const [pendingApprovalGroups, setPendingApprovalGroups] = useState<Group[]>([]);
+  const [videoOpacity, setVideoOpacity] = useState(() =>
+    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.opacity : 0
+  );
+  const [videoUrl, setVideoUrl] = useState(() =>
+    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.url : ''
+  );
+  const [videoEnabled, setVideoEnabled] = useState(() =>
+    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.enabled : false
+  );
+  const [ownedProjectCount, setOwnedProjectCount] = useState(() =>
+    hasPreload ? preloadCache.current!.ownedProjectCount : 0
+  );
+  const [joinedProjectCount, setJoinedProjectCount] = useState(() =>
+    hasPreload ? preloadCache.current!.joinedProjectCount : 0
+  );
+  const [hiddenProjectIds, setHiddenProjectIds] = useState<Set<string>>(() =>
+    hasPreload ? new Set(preloadCache.current!.hiddenProjectIds) : new Set()
+  );
+  const [pendingApprovalGroups, setPendingApprovalGroups] = useState<Group[]>(() =>
+    hasPreload ? (preloadCache.current!.pendingApprovalGroups as Group[]) : []
+  );
   const [showFullScreenFire, setShowFullScreenFire] = useState(false);
   const [filter, setFilter] = useState<DashboardFilter>(() => {
     if (typeof window !== 'undefined' && user?.id) {
@@ -113,16 +137,16 @@ export default function Dashboard() {
   });
   const { isConnected } = useUserPresence('system-global');
 
-  const [loginTransition, setLoginTransition] = useState<{ userName: string } | null>(() => {
-    const raw = sessionStorage.getItem('login_transition');
-    if (raw) {
-      sessionStorage.removeItem('login_transition');
-      try { return JSON.parse(raw); } catch { return null; }
+  // Clear preload cache after consuming it (one-time)
+  useEffect(() => {
+    if (hasPreload) {
+      clearDashboardPreloadCache();
     }
-    return null;
-  });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Skip video settings fetch if we already loaded from preload cache
+    if (hasPreload) return;
     const fetchVideoSettings = async () => {
       const { data } = await supabase
         .from('system_settings')
@@ -137,7 +161,7 @@ export default function Dashboard() {
       }
     };
     fetchVideoSettings();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user?.id) {
@@ -150,6 +174,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user) {
+      // Skip all fetches if preload cache was consumed
+      if (hasPreload) return;
       fetchDashboardData();
       fetchProjectStats();
       fetchHiddenProjects();
@@ -405,7 +431,7 @@ export default function Dashboard() {
     );
   };
 
-  if (isLoading && !loginTransition) {
+  if (isLoading) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -422,15 +448,7 @@ export default function Dashboard() {
         visible={showFullScreenFire}
         onComplete={() => setShowFullScreenFire(false)}
       />
-      {loginTransition && (
-        <LoginTransitionScreen
-          userName={loginTransition.userName}
-          userAvatarUrl={profile?.avatar_url}
-          onComplete={() => setLoginTransition(null)}
-          duration={5000}
-          key="login-transition-stable"
-        />
-      )}
+
       {videoEnabled && videoUrl && (
         <>
           <video
@@ -462,7 +480,7 @@ export default function Dashboard() {
       )}
 
       <MandatoryNotification mode="post_login" userId={user?.id} />
-      <div className={`relative space-y-8 transition-all duration-1000 ease-in-out ${loginTransition ? 'opacity-0 translate-y-4 pointer-events-none select-none' : 'opacity-100 translate-y-0'}`} style={{ zIndex: 2 }}>
+      <div className="relative space-y-8" style={{ zIndex: 2 }}>
         {/* Welcome Section — Frosted Glass style (Light & Dark mode compatible) */}
         <div className="relative overflow-hidden rounded-2xl border border-white/60 dark:border-primary/20 bg-gradient-to-br from-white/80 via-white/60 to-primary/10 dark:from-background/80 dark:via-background/60 dark:to-primary/20 backdrop-blur-xl shadow-md">
           <div className="relative px-6 py-5">

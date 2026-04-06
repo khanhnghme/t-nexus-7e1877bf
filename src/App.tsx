@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
 import PageTransition from "@/components/PageTransition";
 import LoadingScreen from "@/components/LoadingScreen";
+import LoginTransitionScreen from "@/components/LoginTransitionScreen";
+import { useDashboardPreloader } from "@/hooks/useDashboardPreloader";
 import SplashScreen from "@/components/SplashScreen";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Landing from "./pages/Landing";
@@ -66,6 +69,41 @@ function ProtectedLayoutInner() {
 
 function ProtectedLayout() {
   const { user, isLoading, profile } = useAuth();
+
+  // Read login_transition from sessionStorage immediately (lazy init).
+  // This ensures LoginTransitionScreen renders BEFORE any auth loading check,
+  // preventing the flash of the generic LoadingScreen or Dashboard content.
+  const [loginTransition, setLoginTransition] = useState<{ userName: string } | null>(() => {
+    const raw = sessionStorage.getItem('login_transition');
+    if (raw) {
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+    return null;
+  });
+
+  // Prefetch all Dashboard data while LoginTransitionScreen is visible (~5s).
+  // The hook only activates when userId is available (after auth resolves).
+  // By the time the transition ends, data is already in a global cache
+  // that Dashboard reads on mount — eliminating the post-transition loading spinner.
+  useDashboardPreloader(loginTransition ? user?.id : undefined);
+
+  // If a login transition is pending, show LoginTransitionScreen immediately.
+  // This runs BEFORE isLoading check — guaranteeing no flash of LoadingScreen.
+  if (loginTransition) {
+    return (
+      <LoginTransitionScreen
+        userName={loginTransition.userName}
+        userAvatarUrl={profile?.avatar_url ?? null}
+        onComplete={() => {
+          sessionStorage.removeItem('login_transition');
+          setLoginTransition(null);
+        }}
+        duration={5000}
+        key="protected-login-transition"
+      />
+    );
+  }
+
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/auth" replace />;
   if (profile && !profile.is_approved) return <Navigate to="/auth" replace />;
