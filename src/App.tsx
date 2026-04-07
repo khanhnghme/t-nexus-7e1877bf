@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AnimationProvider } from "@/contexts/AnimationContext";
 import { MusicProvider } from "@/contexts/MusicContext";
 import { ForceLightMode } from "@/components/ForceLightMode";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -106,26 +107,36 @@ function AppRoutes() {
   }
 
   return (
+    <LanguageProvider>
     <PageTransition>
       <Routes>
+        {/* ═══ Localized public routes — EN (root) ═══ */}
         <Route path="/" element={<ForceLightMode><Landing /></ForceLightMode>} />
-        {/* Public routes — always light mode */}
+        <Route path="/auth" element={<ForceLightMode><Auth /></ForceLightMode>} />
+        <Route path="/pricing" element={<ForceLightMode><Pricing /></ForceLightMode>} />
+        <Route path="/download" element={<ForceLightMode><DownloadPage /></ForceLightMode>} />
+
+        {/* ═══ Localized public routes — Vietnamese (/vi) ═══ */}
+        <Route path="/vi">
+          <Route index element={<ForceLightMode><Landing /></ForceLightMode>} />
+          <Route path="auth" element={<ForceLightMode><Auth /></ForceLightMode>} />
+          <Route path="pricing" element={<ForceLightMode><Pricing /></ForceLightMode>} />
+          <Route path="download" element={<ForceLightMode><DownloadPage /></ForceLightMode>} />
+        </Route>
+
+        {/* ═══ Non-localized public routes ═══ */}
         <Route path="/project/:projectSlug/task/:taskSlug" element={<ForceLightMode><PublicTaskPreview /></ForceLightMode>} />
         <Route path="/project/:projectSlug" element={<ForceLightMode><PublicProjectView /></ForceLightMode>} />
         <Route path="/s/:shareToken" element={<ForceLightMode><PublicProjectView /></ForceLightMode>} />
         <Route path="/s/:shareToken/t/:taskSlug/f/:fileIndex" element={<ForceLightMode><FilePreview /></ForceLightMode>} />
         <Route path="/public/project/:shareToken" element={<ForceLightMode><PublicProjectView /></ForceLightMode>} />
-        <Route path="/auth" element={<ForceLightMode><Auth /></ForceLightMode>} />
-        <Route path="/download" element={<ForceLightMode><DownloadPage /></ForceLightMode>} />
-        <Route path="/pricing" element={<ForceLightMode><Pricing /></ForceLightMode>} />
         <Route path="/reset-password" element={<ForceLightMode><ResetPassword /></ForceLightMode>} />
         <Route path="/auth/member" element={<Navigate to="/auth" replace />} />
         <Route path="/auth/admin" element={<Navigate to="/auth" replace />} />
         <Route path="/u/:username" element={<ForceLightMode><PublicProfile /></ForceLightMode>} />
-        {/* Legacy file preview */}
         <Route path="/file-preview" element={<ForceLightMode><FilePreview /></ForceLightMode>} />
 
-        {/* Protected routes with persistent DashboardLayout */}
+        {/* ═══ Protected routes with persistent DashboardLayout ═══ */}
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/groups" element={<Groups />} />
@@ -149,6 +160,7 @@ function AppRoutes() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </PageTransition>
+    </LanguageProvider>
   );
 }
 

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildBrandedDigestEmail } from "../_shared/email-html-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,50 +172,25 @@ Deno.serve(async (req) => {
         digest.deadlines.length > 0 ? ` - ${digest.deadlines.length} deadline sắp hết` : ""
       }${digest.newTasks.length > 0 ? ` + ${digest.newTasks.length} task mới` : ""}`;
 
-      let html = `
-        <div style="font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;">
-          <div style="background: hsl(183, 100%, 21%); padding: 24px 32px; color: white;">
-            <h1 style="margin: 0; font-size: 20px;">📊 Cập nhật hàng ngày</h1>
-            <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">Xin chào ${profile.full_name},</p>
-          </div>
-          <div style="padding: 24px 32px;">
-      `;
+      const deadlineItems = digest.deadlines.map((task: any) => {
+        const deadline = new Date(task.deadline);
+        const hoursLeft = Math.round((deadline.getTime() - now.getTime()) / (1000 * 60 * 60));
+        return { title: task.title, project: task.project, hoursLeft };
+      });
 
-      if (digest.deadlines.length > 0) {
-        html += `<h2 style="color: #dc2626; font-size: 16px; margin: 0 0 12px;">⏰ Deadline sắp hết (${digest.deadlines.length} task)</h2><div style="margin-bottom: 20px;">`;
-        for (const task of digest.deadlines) {
-          const deadline = new Date(task.deadline);
-          const hoursLeft = Math.round((deadline.getTime() - now.getTime()) / (1000 * 60 * 60));
-          html += `<div style="padding: 10px 14px; margin-bottom: 8px; background: #fef2f2; border-radius: 8px; border-left: 3px solid #dc2626;">
-            <strong style="color: hsl(220, 20%, 10%);">${task.title}</strong>
-            <div style="font-size: 13px; color: hsl(220, 9%, 46%); margin-top: 4px;">📁 ${task.project} · còn ${hoursLeft}h</div>
-          </div>`;
-        }
-        html += `</div>`;
-      }
+      const newTaskItems = digest.newTasks.map((task: any) => {
+        const deadlineDisplay = task.deadline
+          ? new Date(task.deadline).toLocaleDateString("vi-VN")
+          : "Chưa có";
+        return { title: task.title, project: task.project, deadlineDisplay };
+      });
 
-      if (digest.newTasks.length > 0) {
-        html += `<h2 style="color: hsl(183, 100%, 21%); font-size: 16px; margin: 0 0 12px;">📋 Task mới được giao (${digest.newTasks.length} task)</h2><div style="margin-bottom: 20px;">`;
-        for (const task of digest.newTasks) {
-          const deadlineStr = task.deadline ? new Date(task.deadline).toLocaleDateString("vi-VN") : "Chưa có";
-          html += `<div style="padding: 10px 14px; margin-bottom: 8px; background: hsl(183, 40%, 93%); border-radius: 8px; border-left: 3px solid hsl(183, 100%, 21%);">
-            <strong style="color: hsl(220, 20%, 10%);">${task.title}</strong>
-            <div style="font-size: 13px; color: hsl(220, 9%, 46%); margin-top: 4px;">📁 ${task.project} · ⏰ Deadline: ${deadlineStr}</div>
-          </div>`;
-        }
-        html += `</div>`;
-      }
+      const html = buildBrandedDigestEmail({
+        recipientName: profile.full_name,
+        deadlineTasks: deadlineItems,
+        newTasks: newTaskItems,
+      });
 
-      html += `
-            <div style="text-align: center; margin-top: 24px;">
-              <p style="color: hsl(220, 9%, 46%); font-size: 13px;">Truy cập hệ thống để xem chi tiết.</p>
-            </div>
-          </div>
-          <div style="background: #f9fafb; padding: 16px 32px; text-align: center; font-size: 12px; color: #9ca3af;">
-            Email tự động từ T-Nexus · Bạn có thể tắt trong Thông tin cá nhân
-          </div>
-        </div>
-      `;
 
       const messageId = crypto.randomUUID();
 

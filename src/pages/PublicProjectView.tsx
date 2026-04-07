@@ -25,7 +25,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { parseLocalDateTime, formatDeadlineVN } from '@/lib/datetime';
 import type { Group, Stage, Task, TaskAssignment, GroupMember } from '@/types/database';
-import uehLogo from '@/assets/t-nexus-text-white.png';
+import tNexusLogo from '@/assets/t-nexus-text-white.png';
 
 // Components for each tab (read-only versions)
 import PublicGroupDashboard from '@/components/public/PublicGroupDashboard';
@@ -206,7 +206,7 @@ export default function PublicProjectView() {
         <div className="h-full max-w-[1600px] mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
           {/* Left: Logo only on mobile, Logo + Brand on larger */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                          <img src={uehLogo} alt="ETT Logo" className="h-8 sm:h-10 w-auto drop-shadow-md" />
+                          <img src={tNexusLogo} alt="T-Nexus Logo" className="h-8 sm:h-10 w-auto drop-shadow-md" />
             <div className="hidden sm:block h-6 w-px bg-white/20" />
             <div className="hidden sm:flex flex-col max-w-[200px]">
               <span className="font-bold text-sm text-white truncate">{group.name}</span>
@@ -391,7 +391,7 @@ export default function PublicProjectView() {
       {/* Footer */}
       <footer className="border-t py-6 bg-muted/30">
         <div className="max-w-[1600px] mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} {'UEH Project Management System'}</p>
+          <p>© {new Date().getFullYear()} {'T-Nexus Project Management System'}</p>
           <p className="mt-1">Đây là trang xem công khai – chỉ xem, không chỉnh sửa</p>
         </div>
       </footer>

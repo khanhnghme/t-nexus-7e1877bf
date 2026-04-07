@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { r2Storage } from '@/lib/r2Storage';
 import { useAuth } from '@/contexts/AuthContext';
-import uehLogo from '@/assets/t-nexus-logo.png';
+import tNexusLogo from '@/assets/t-nexus-logo.png';
 import welcomeImg from '@/assets/onboarding-welcome.png';
 import securityImg from '@/assets/onboarding-security.png';
 import profileImg from '@/assets/onboarding-profile.png';
@@ -315,11 +315,11 @@ export default function FirstTimeOnboarding({
               {/* Logo */}
               <div className="flex items-center gap-3 mb-10">
                 <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center p-1.5">
-                  <img src={uehLogo} alt="ETT" className="w-full h-full object-contain brightness-0 invert" />
+                  <img src={tNexusLogo} alt="T-Nexus" className="w-full h-full object-contain brightness-0 invert" />
                 </div>
                 <div>
                   <p className="font-bold text-lg leading-tight text-white">T-Nexus</p>
-                  <p className="text-[10px] text-white/60">Quản lý dự án nhóm ETT</p>
+                  <p className="text-[10px] text-white/60">Quản lý dự án nhóm</p>
                 </div>
               </div>
 
@@ -395,7 +395,7 @@ export default function FirstTimeOnboarding({
           <div className="flex-1 flex flex-col overflow-hidden bg-background">
             {/* Mobile step indicator */}
             <div className="md:hidden flex items-center gap-2 px-5 pt-4 pb-2">
-              <img src={uehLogo} alt="ETT" className="h-7" />
+              <img src={tNexusLogo} alt="T-Nexus" className="h-7" />
               <span className="text-sm font-bold text-foreground">T-Nexus</span>
               <div className="ml-auto flex items-center gap-1.5">
                 {allSteps.map((_, idx) => (

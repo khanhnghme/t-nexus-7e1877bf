@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import SplashScreen from '@/components/SplashScreen';
 import MandatoryNotification from '@/components/MandatoryNotification';
 import { useFullLockdown } from '@/hooks/useFullLockdown';
@@ -46,6 +46,8 @@ import {
 } from 'lucide-react';
 import LoadingScreen from '@/components/LoadingScreen';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageToggle from '@/components/LanguageToggle';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import tNexusLogo from '@/assets/t-nexus-logo.png';
@@ -124,156 +126,22 @@ type SocialQuote = {
   role: string;
 };
 
-const NAV_ITEMS: LandingNavItem[] = [
-  { label: 'Product', href: '#workspace-grid', hasChevron: true },
-  { label: 'AI', href: '#assistant-grid', hasChevron: true },
-  { label: 'Solutions', href: '#social-proof', hasChevron: true },
-  { label: 'Resources', href: '#resources', hasChevron: true },
-  { label: 'Enterprise', href: '#efficiency' },
-  { label: 'Pricing', href: '/pricing' },
-];
+const SIGNAL_ICONS = [Sparkles, FolderOpen, Award, Clock];
+const SIGNAL_ACCENTS = ['--landing-blue', '--landing-purple', '--landing-orange', '--landing-yellow'];
+const SIGNAL_POSITIONS = ['left-[6%] top-[16%]', 'left-[4%] top-[52%]', 'right-[6%] top-[16%]', 'right-[4%] top-[52%]'];
+const SIGNAL_DELAYS = [100, 700, 1200, 900];
+const SIGNAL_DURATIONS = [7200, 7600, 7800, 7400];
 
-const HERO_SIGNALS: LandingSignal[] = [
-  { label: 'AI Assistant', note: 'Instant answers', icon: Sparkles, accent: '--landing-blue', positionClass: 'left-[6%] top-[16%]', motionDelayMs: 100, motionDurationMs: 7200 },
-  { label: 'Resources', note: 'Files & notes', icon: FolderOpen, accent: '--landing-purple', positionClass: 'left-[4%] top-[52%]', motionDelayMs: 700, motionDurationMs: 7600 },
-  { label: 'Scoring', note: 'Automated', icon: Award, accent: '--landing-orange', positionClass: 'right-[6%] top-[16%]', motionDelayMs: 1200, motionDurationMs: 7800 },
-  { label: 'Deadlines', note: '24/7 reminders', icon: Clock, accent: '--landing-yellow', positionClass: 'right-[4%] top-[52%]', motionDelayMs: 900, motionDurationMs: 7400 },
-];
+const ASSISTANT_IMAGES = [saasAiAssistant, saasMeetingNotes, saasScoringSignals, saasNotifications];
+const ASSISTANT_ICONS = [Sparkles, Calendar, TrendingUp, Bell];
+const ASSISTANT_ACCENTS = ['--landing-blue', '--landing-purple', '--landing-orange', '--landing-teal'];
 
-const LOGO_WALL_ROWS = [
-  ['University', 'Research', 'IT Department', 'TeamWorks', 'T-Nexus', 'Students'],
-  ['Project Lab', 'Task Board', 'AI Notes', 'Workflow', 'Scoring', 'Realtime'],
-];
+const WORKSPACE_IMAGES = [saasTaskManagement, saasKnowledgeBase, saasScoringFormula, saasProjects, saasSharing, saasInsights];
+const WORKSPACE_ICONS = [ListChecks, Search, Target, Layers3, Globe, BarChart3];
+const WORKSPACE_ACCENTS = ['--landing-teal', '--landing-blue', '--landing-orange', '--landing-purple', '--landing-pink', '--landing-yellow'];
+const WORKSPACE_WIDE = [true, false, false, true, false, false];
 
-const ASSISTANT_CARDS: LandingBentoCard[] = [
-  {
-    eyebrow: 'AI Assistant',
-    title: 'Ask about your project and get answers instantly.',
-    description: 'T-Nexus aggregates tasks, notes, scores and resources to respond with full context.',
-    image: saasAiAssistant,
-    icon: Sparkles,
-    accent: '--landing-blue',
-  },
-  {
-    eyebrow: 'Meeting Notes',
-    title: 'Clean, clear, and actionable meeting summaries.',
-    description: 'Summarize work, reassign owners and push next steps to your team.',
-    image: saasMeetingNotes,
-    icon: Calendar,
-    accent: '--landing-purple',
-  },
-  {
-    eyebrow: 'Scoring Signals',
-    title: 'Track progress, scores and deadline risks before it\'s too late.',
-    description: 'All critical signals surface early so leaders can act in time.',
-    image: saasScoringSignals,
-    icon: TrendingUp,
-    accent: '--landing-orange',
-  },
-  {
-    eyebrow: 'Notifications',
-    title: 'Right deadline, right person, right time.',
-    description: 'Realtime notifications and digests keep your project moving even off-hours.',
-    image: saasNotifications,
-    icon: Bell,
-    accent: '--landing-teal',
-  },
-];
-
-const WORKSPACE_CARDS: LandingBentoCard[] = [
-  {
-    eyebrow: 'Task Management',
-    title: 'Less manual tracking. More real progress.',
-    description: 'Kanban, assignments, deadlines and submissions all in the same workflow.',
-    image: saasTaskManagement,
-    icon: ListChecks,
-    accent: '--landing-teal',
-    wide: true,
-  },
-  {
-    eyebrow: 'Knowledge Base',
-    title: 'One source of truth for your team.',
-    description: 'Gather resources, notes, questions and work history in a single place.',
-    image: saasKnowledgeBase,
-    icon: Search,
-    accent: '--landing-blue',
-  },
-  {
-    eyebrow: 'Scoring',
-    title: 'Transparent and verifiable grading.',
-    description: 'Formulas, weights and leaderboards presented clearly for every member.',
-    image: saasScoringFormula,
-    icon: Target,
-    accent: '--landing-orange',
-  },
-  {
-    eyebrow: 'Projects',
-    title: 'Manage stages, members and overall progress.',
-    description: 'See your entire team\'s coursework or research at a glance.',
-    image: saasProjects,
-    icon: Layers3,
-    accent: '--landing-purple',
-    wide: true,
-  },
-  {
-    eyebrow: 'Sharing',
-    title: 'Share your project with instructors effortlessly.',
-    description: 'Create a clean, professional progress view for stakeholders.',
-    image: saasSharing,
-    icon: Globe,
-    accent: '--landing-pink',
-  },
-  {
-    eyebrow: 'Insights',
-    title: 'Progress charts and team health at a glance.',
-    description: 'Key indicators always ready for leaders to make fast decisions.',
-    image: saasInsights,
-    icon: BarChart3,
-    accent: '--landing-yellow',
-  },
-];
-
-const SOCIAL_QUOTES: SocialQuote[] = [
-  {
-    brand: 'University / Research',
-    quote: '"When everything is on one platform, our team works significantly faster with no lost information."',
-    role: 'Research team leader',
-  },
-  {
-    brand: 'TeamWorks',
-    quote: '"Clear workflows dramatically shortened our timeline and everyone knows exactly where they stand."',
-    role: 'Coursework project team',
-  },
-  {
-    brand: 'Project Lab',
-    quote: '"AI summaries and reminders save leaders so much time on manual aggregation."',
-    role: 'Product development team',
-  },
-  {
-    brand: 'IT Students',
-    quote: '"Transparent scoring gives everyone peace of mind when collaborating long-term."',
-    role: 'Graduation capstone',
-  },
-  {
-    brand: 'Design Studio',
-    quote: '"One place for tasks, resources, notifications and sharing links — exactly what our team needed."',
-    role: 'Communications team',
-  },
-  {
-    brand: 'Research Sprint',
-    quote: '"T-Nexus makes our progress reports to instructors look professional and convincing."',
-    role: 'Fast research group',
-  },
-];
-
-const STATS_MARQUEE = [
-  { icon: Users, text: '500+ active students' },
-  { icon: Award, text: '#1 team coursework experience' },
-  { icon: FolderOpen, text: '120+ active projects' },
-  { icon: ListChecks, text: '5,000+ tasks completed' },
-  { icon: Globe, text: 'Available on web, desktop & mobile' },
-  { icon: Star, text: 'Highly rated by team leaders' },
-];
+const STATS_ICONS = [Users, Award, FolderOpen, ListChecks, Globe, Star];
 
 const ALL_INTRO_IMAGES = [
   introPage1, introPage2, introPage3, introPage4, introPage5,
@@ -453,6 +321,10 @@ const introPageComponents = [Page1Overview, Page2Tasks, Page3Scoring, Page4Proje
 
 export default function Landing() {
   const { isLocked, isChecking, message: lockdownMessage, endAt: lockdownEndAt } = useFullLockdown();
+  const { translations: t, localizedPath: lp } = useLanguage();
+  const tl = t.landing;
+  const tc = t.common;
+  const tn = t.nav;
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('t-nexus-splash-shown'));
   const [isInitializing, setIsInitializing] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
@@ -468,6 +340,39 @@ export default function Landing() {
   const [dashboardVideoElement, setDashboardVideoElement] = useState<HTMLVideoElement | null>(null);
   const [activeWordIndex, setActiveWordIndex] = useState(0);
   const [hoveredWordIndex, setHoveredWordIndex] = useState<number | null>(null);
+
+  // ── Derive all constant arrays from translations ──
+  const NAV_ITEMS: LandingNavItem[] = useMemo(() => [
+    { label: tn.product, href: '#workspace-grid', hasChevron: true },
+    { label: tn.ai, href: '#assistant-grid', hasChevron: true },
+    { label: tn.solutions, href: '#social-proof', hasChevron: true },
+    { label: tn.resources, href: '#resources', hasChevron: true },
+    { label: tn.enterprise, href: '#efficiency' },
+    { label: tn.pricing, href: lp('/pricing') },
+  ], [tn, lp]);
+
+  const HERO_SIGNALS: LandingSignal[] = useMemo(() =>
+    (tl.heroSignals as { label: string; note: string }[]).map((s, i) => ({
+      label: s.label, note: s.note, icon: SIGNAL_ICONS[i], accent: SIGNAL_ACCENTS[i],
+      positionClass: SIGNAL_POSITIONS[i], motionDelayMs: SIGNAL_DELAYS[i], motionDurationMs: SIGNAL_DURATIONS[i],
+    })), [tl]);
+
+  const LOGO_WALL_ROWS: string[][] = useMemo(() => tl.logoWallRows, [tl]);
+
+  const ASSISTANT_CARDS: LandingBentoCard[] = useMemo(() =>
+    (tl.assistantCards as { eyebrow: string; title: string; description: string }[]).map((c, i) => ({
+      ...c, image: ASSISTANT_IMAGES[i], icon: ASSISTANT_ICONS[i], accent: ASSISTANT_ACCENTS[i],
+    })), [tl]);
+
+  const WORKSPACE_CARDS: LandingBentoCard[] = useMemo(() =>
+    (tl.workspaceCards as { eyebrow: string; title: string; description: string }[]).map((c, i) => ({
+      ...c, image: WORKSPACE_IMAGES[i], icon: WORKSPACE_ICONS[i], accent: WORKSPACE_ACCENTS[i], wide: WORKSPACE_WIDE[i],
+    })), [tl]);
+
+  const SOCIAL_QUOTES: SocialQuote[] = useMemo(() => tl.socialQuotes, [tl]);
+
+  const STATS_MARQUEE = useMemo(() =>
+    (tl.stats as string[]).map((text, i) => ({ icon: STATS_ICONS[i], text })), [tl]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -614,22 +519,14 @@ export default function Landing() {
   }, [isLocked, lockdownEndAt]);
 
   const PageComponent = introPageComponents[currentPage];
-  const pageTitles = ['Overview', 'Tasks', 'Scoring', 'Projects', 'Advanced'];
+  const pageTitles = tl.introPageTitles;
 
   // Maintenance hero content
-  const MAINTENANCE_HERO_WORDS = [
-    { word: 'The', color: '#A8D8EA' },
-    { word: 'system', color: '#B8A9E8' },
-    { word: 'is', color: '#FFB7C5' },
-    { word: 'currently', color: '#BFEAA8' },
-  ];
-  const MAINTENANCE_HERO_WORDS_LINE2 = [
-    { word: 'under', color: '#FFD6A5' },
-    { word: 'maintenance.', color: '#A0E7E5' },
-  ];
+  const MAINTENANCE_HERO_WORDS = tl.maintenanceLine1;
+  const MAINTENANCE_HERO_WORDS_LINE2 = tl.maintenanceLine2;
 
   if (isChecking && !showSplash) {
-    return <LoadingScreen message="Loading homepage..." />;
+    return <LoadingScreen message={tl.loadingHomepage} />;
   }
 
   return (
@@ -728,7 +625,7 @@ export default function Landing() {
                 {isInitializing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
               </button>
               <Link
-                to="/download"
+                to={lp('/download')}
                 className="hidden text-sm transition-colors sm:block"
                 style={{ color: colorVar('--landing-hero-foreground', 0.85) }}
                 onMouseEnter={(event) => {
@@ -738,7 +635,7 @@ export default function Landing() {
                   event.currentTarget.style.color = colorVar('--landing-hero-foreground', 0.85);
                 }}
               >
-                Download
+                {tc.download}
               </Link>
               <Button
                 asChild
@@ -746,7 +643,7 @@ export default function Landing() {
                 className="h-10 rounded-full px-4 text-sm font-medium shadow-none"
                 style={{ backgroundColor: colorVar('--landing-blue'), color: '#fff' }}
               >
-                <Link to="/auth">Log in</Link>
+                <Link to={lp('/auth')}>{tc.login}</Link>
               </Button>
             </div>
           </div>
@@ -855,7 +752,7 @@ export default function Landing() {
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" style={{ color: colorVar('--landing-blue') }} />
-                    The teamwork orchestration platform for students
+                    {tl.heroBadge}
                   </>
                 )}
               </div>
@@ -863,12 +760,7 @@ export default function Landing() {
                 className="mt-8 text-[42px] font-semibold leading-[0.91] tracking-[-0.04em] sm:text-[56px] lg:text-[64px] xl:text-[72px] landing-hero-title"
                 style={{ color: colorVar('--landing-hero-foreground'), animation: 'landing-fade-up 700ms ease-out 120ms both' }}
               >
-                {(isLocked ? MAINTENANCE_HERO_WORDS : [
-                  { word: 'The', color: '#A8D8EA' },
-                  { word: 'night', color: '#B8A9E8' },
-                  { word: 'shift', color: '#FFB7C5' },
-                  { word: 'for', color: '#BFEAA8' },
-                ]).map((item, i) => {
+                {(isLocked ? MAINTENANCE_HERO_WORDS : tl.heroLine1).map((item: { word: string; color: string }, i: number) => {
                   const globalIndex = i;
                   const isLightUp = hoveredWordIndex !== null ? hoveredWordIndex === globalIndex : activeWordIndex === globalIndex;
                   return (
@@ -886,10 +778,7 @@ export default function Landing() {
                   );
                 })}
                 <br />
-                {(isLocked ? MAINTENANCE_HERO_WORDS_LINE2 : [
-                  { word: 'your', color: '#FFD6A5' },
-                  { word: 'teamwork.', color: '#A0E7E5' },
-                ]).map((item, i) => {
+                {(isLocked ? MAINTENANCE_HERO_WORDS_LINE2 : tl.heroLine2).map((item: { word: string; color: string }, i: number) => {
                   const globalIndex = i + 4;
                   const isLightUp = hoveredWordIndex !== null ? hoveredWordIndex === globalIndex : activeWordIndex === globalIndex;
                   return (
@@ -912,8 +801,8 @@ export default function Landing() {
                 style={{ color: colorVar('--landing-hero-muted'), animation: 'landing-fade-up 700ms ease-out 220ms both' }}
               >
                 {isLocked
-                  ? 'We are performing scheduled maintenance to improve your experience. All services will be fully restored shortly. Thank you for your patience.'
-                  : <>T-Nexus keeps your work on track 24/7. It remembers context, answers questions, reminds deadlines and pushes your project forward — even when the whole team is&nbsp;offline.</>}
+                  ? tl.maintenanceDescription
+                  : <>{tl.heroDescription}</>}
               </p>
 
               {/* Maintenance countdown — inline on hero */}
@@ -932,7 +821,7 @@ export default function Landing() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: 'hsl(45 93% 55%)' }} />
                       <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: 'hsl(45 93% 55%)' }} />
                     </span>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: colorVar('--landing-hero-muted') }}>Maintenance in progress</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: colorVar('--landing-hero-muted') }}>{tl.maintenanceInProgress}</span>
                   </div>
                   {lockdownEndAt && maintenanceTimeLeft && (
                     maintenanceTimeLeft.includes(':') ? (
@@ -952,18 +841,18 @@ export default function Landing() {
                                 <span className="text-2xl font-bold font-mono tabular-nums relative" style={{ color: colorVar('--landing-hero-foreground') }}>{unit}</span>
                               </div>
                               <span className="text-[9px] uppercase tracking-wider font-semibold mt-1.5" style={{ color: colorVar('--landing-hero-muted', 0.6) }}>
-                                {['Hours', 'Minutes', 'Seconds'][i]}
+                                {[tl.maintenanceHours, tl.maintenanceMinutes, tl.maintenanceSeconds][i]}
                               </span>
                             </div>
                           </React.Fragment>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm font-semibold text-center animate-pulse" style={{ color: 'hsl(45 93% 55%)' }}>{maintenanceTimeLeft}</p>
+                      <p className="text-sm font-semibold text-center animate-pulse" style={{ color: 'hsl(45 93% 55%)' }}>{tl.maintenanceReopeningSoon}</p>
                     )
                   )}
                   {!lockdownEndAt && (
-                    <p className="text-xs text-center" style={{ color: colorVar('--landing-hero-muted', 0.5) }}>The system will be back online once the update is complete.</p>
+                    <p className="text-xs text-center" style={{ color: colorVar('--landing-hero-muted', 0.5) }}>{tl.maintenanceBackOnline}</p>
                   )}
                 </div>
               )}
@@ -976,7 +865,7 @@ export default function Landing() {
                     className="h-12 rounded-full px-6 text-sm font-medium shadow-none cursor-not-allowed opacity-60"
                     style={{ backgroundColor: colorVar('--landing-hero-foreground', 0.15), color: colorVar('--landing-hero-muted') }}
                   >
-                    Please come back later
+                    {tl.maintenancePleaseComeBack}
                   </Button>
                 ) : (
                   <>
@@ -986,8 +875,8 @@ export default function Landing() {
                       className="h-12 rounded-full px-6 text-sm font-medium shadow-none"
                       style={{ backgroundColor: colorVar('--landing-blue'), color: '#fff' }}
                     >
-                      <Link to="/auth" className="flex items-center gap-2">
-                        Get T-Nexus free <ArrowRight className="h-4 w-4" />
+                      <Link to={lp('/auth')} className="flex items-center gap-2">
+                        {tl.ctaGetFree} <ArrowRight className="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button
@@ -1001,7 +890,7 @@ export default function Landing() {
                         color: colorVar('--landing-hero-foreground'),
                       }}
                     >
-                      Watch demo <ChevronRight className="ml-1 h-4 w-4" />
+                      {tl.ctaWatchDemo} <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                   </>
                 )}
@@ -1066,7 +955,7 @@ export default function Landing() {
                     <Play className="ml-0.5 h-4 w-4 fill-current" />
                   </button>
                   <div className="hidden rounded-full border px-4 py-2 text-sm backdrop-blur-md md:block" style={{ borderColor: colorVar('--landing-hero-foreground', 0.12), backgroundColor: colorVar('--landing-night-elevated', 0.86), color: colorVar('--landing-hero-foreground') }}>
-                    Watch product walkthrough
+                    {tl.ctaWatchWalkthrough}
                   </div>
                 </div>
                 <div className="absolute right-5 top-16 hidden gap-3 md:flex">
@@ -1097,7 +986,7 @@ export default function Landing() {
 
             <div className="relative z-10 pb-16 pt-16 md:pb-24">
               <p className="text-center text-[11px] font-medium uppercase tracking-[0.28em]" style={{ color: colorVar('--landing-hero-subtle') }}>
-                Trusted by student teams who actually ship projects
+                {tl.trustedBy}
               </p>
               <div className="mt-8 space-y-3 overflow-hidden" style={{ maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' }}>
                 {LOGO_WALL_ROWS.map((row, rowIndex) => (
@@ -1132,10 +1021,10 @@ export default function Landing() {
           <section id="assistant-grid" className="mx-auto max-w-[1240px] py-4 md:py-8">
             <div className="max-w-[760px]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: colorVar('--landing-surface-muted') }}>
-                On-demand assistant
+                {tl.assistantEyebrow}
               </p>
               <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-[-0.04em] md:text-[42px]" style={{ color: colorVar('--landing-surface-foreground') }}>
-                The right assistant, at the right moment.
+                {tl.assistantTitle}
               </h2>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2">
@@ -1187,10 +1076,10 @@ export default function Landing() {
           <section id="workspace-grid" className="mx-auto max-w-[1240px] py-20 md:py-28">
             <div className="max-w-[780px]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: colorVar('--landing-surface-muted') }}>
-                Product workspace
+                {tl.workspaceEyebrow}
               </p>
               <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-[-0.04em] md:text-[42px]" style={{ color: colorVar('--landing-surface-foreground') }}>
-                Bring all your work into one place.
+                {tl.workspaceTitle}
               </h2>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2">
@@ -1248,16 +1137,16 @@ export default function Landing() {
             <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
               <div className="max-w-[560px]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: colorVar('--landing-surface-muted') }}>
-                  Workflow efficiency
+                  {tl.efficiencyEyebrow}
                 </p>
                 <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-[-0.04em] md:text-[42px]" style={{ color: colorVar('--landing-surface-foreground') }}>
-                  More efficiency. Fewer tools.
+                  {tl.efficiencyTitle}
                 </h2>
                 <p className="mt-5 max-w-[32rem] text-[16px] leading-8" style={{ color: colorVar('--landing-surface-muted') }}>
-                  Bring tasks, scoring, resources, meeting notes and public sharing into one unified system so your team stops losing time switching context.
+                  {tl.efficiencyDescription}
                 </p>
-                <Link to="/download" className="mt-6 inline-flex items-center gap-2 text-sm font-medium" style={{ color: colorVar('--landing-blue') }}>
-                  See installation options <ArrowRight className="h-4 w-4" />
+                <Link to={lp('/download')} className="mt-6 inline-flex items-center gap-2 text-sm font-medium" style={{ color: colorVar('--landing-blue') }}>
+                  {tl.efficiencySeeInstall} <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
 
@@ -1273,28 +1162,22 @@ export default function Landing() {
                   <div className="flex flex-col rounded-[1.5rem] border p-6" style={{ borderColor: colorVar('--landing-border-soft'), backgroundColor: colorVar('--landing-surface') }}>
                     <div className="mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 self-start" style={{ borderColor: colorVar('--landing-chrome-red', 0.2), backgroundColor: colorVar('--landing-chrome-red', 0.1) }}>
                       <XCircle className="h-4 w-4" style={{ color: colorVar('--landing-chrome-red') }} />
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: colorVar('--landing-chrome-red') }}>Before</span>
+                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: colorVar('--landing-chrome-red') }}>{tl.efficiencyBefore}</span>
                     </div>
                     <div className="mb-6 overflow-hidden rounded-[1rem] border" style={{ borderColor: colorVar('--landing-border-soft'), backgroundColor: colorVar('--landing-card') }}>
                       <img src={efficiencyBefore} alt="Scattered workflow" className="aspect-[2/1] w-full object-cover object-center" />
                     </div>
                     <ul className="space-y-4 text-[14px] leading-6" style={{ color: colorVar('--landing-surface-muted') }}>
-                      <li className="flex items-start gap-3">
-                        <Table2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-chrome-red', 0.8) }} />
-                        <span>Scattered spreadsheets for keeping track of tasks and deadlines.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <MessageSquareOff className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-chrome-red', 0.8) }} />
-                        <span>Endless chat scrolling to find assigned work and approvals.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <FolderArchive className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-chrome-red', 0.8) }} />
-                        <span>Disorganized Drive folders with lost resources.</span>
-                      </li>
-                      <li className="flex items-start gap-3">
-                        <FileQuestion className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-chrome-red', 0.8) }} />
-                        <span>Manual grading forms and invisible evaluation process.</span>
-                      </li>
+                      {(tl.efficiencyBeforeItems as string[]).map((text: string, i: number) => {
+                        const icons = [Table2, MessageSquareOff, FolderArchive, FileQuestion];
+                        const Icon = icons[i];
+                        return (
+                          <li key={i} className="flex items-start gap-3">
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-chrome-red', 0.8) }} />
+                            <span>{text}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
 
@@ -1308,41 +1191,31 @@ export default function Landing() {
                     <div className="relative z-10">
                       <div className="mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 self-start" style={{ borderColor: colorVar('--landing-teal', 0.3), backgroundColor: colorVar('--landing-teal', 0.15) }}>
                         <img src={tNexusLogo} alt="T-Nexus" className="h-4 w-4 rounded-[3px] opacity-90" />
-                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: colorVar('--landing-teal') }}>With T-Nexus</span>
+                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: colorVar('--landing-teal') }}>{tl.efficiencyWithTNexus}</span>
                       </div>
                       <div className="mb-6 overflow-hidden rounded-[1rem] border" style={{ borderColor: colorVar('--landing-border-soft'), backgroundColor: colorVar('--landing-card') }}>
                         <img src={landingPreview} alt="T-Nexus Homepage" className="aspect-[2/1] w-full object-cover object-top" />
                       </div>
                       <ul className="space-y-4 text-[14px] leading-6" style={{ color: colorVar('--landing-surface-foreground') }}>
-                        <li className="flex items-start gap-3">
-                          <LayoutDashboard className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-teal') }} />
-                          <span className="font-medium">One unified workspace for the entire team workflow.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                          <BellRing className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-teal') }} />
-                          <span className="font-medium">Clear task tracking with 24/7 automated reminders.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                          <FolderCheck className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-teal') }} />
-                          <span className="font-medium">Centralized resources available instantly.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                          <Trophy className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-teal') }} />
-                          <span className="font-medium">Transparent, automated scoring and leaderboards.</span>
-                        </li>
+                        {(tl.efficiencyAfterItems as string[]).map((text: string, i: number) => {
+                          const icons = [LayoutDashboard, BellRing, FolderCheck, Trophy];
+                          const Icon = icons[i];
+                          return (
+                            <li key={i} className="flex items-start gap-3">
+                              <Icon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: colorVar('--landing-teal') }} />
+                              <span className="font-medium">{text}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {[
-                    { icon: Clock, value: '3x', label: 'faster aggregation time' },
-                    { icon: Target, value: '100%', label: 'deadlines tracked centrally' },
-                    { icon: Users, value: '1 place', label: 'for all team collaboration' },
-                    { icon: Zap, value: '0', label: 'repetitive data entry needed' },
-                  ].map((item) => {
-                    const Icon = item.icon;
+                  {(tl.efficiencyStats as { value: string; label: string }[]).map((item: { value: string; label: string }, i: number) => {
+                    const icons = [Clock, Target, Users, Zap];
+                    const Icon = icons[i];
                     return (
                       <div key={item.label} className="rounded-[1.25rem] border p-4" style={{ borderColor: colorVar('--landing-border-soft') }}>
                         <div className="flex items-center gap-3">
@@ -1365,10 +1238,10 @@ export default function Landing() {
           <section id="social-proof" className="mx-auto max-w-[1240px] py-20 md:py-28">
             <div className="max-w-[720px]">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: colorVar('--landing-surface-muted') }}>
-                Social proof
+                {tl.socialProofEyebrow}
               </p>
               <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-[-0.04em] md:text-[42px]" style={{ color: colorVar('--landing-surface-foreground') }}>
-                Trusted by teams that deliver.
+                {tl.socialProofTitle}
               </h2>
             </div>
 
@@ -1376,16 +1249,16 @@ export default function Landing() {
               <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
                 <div className="p-7 md:p-10">
                   <div className="inline-flex rounded-full border px-3 py-2 text-xs font-medium uppercase tracking-[0.2em]" style={{ borderColor: colorVar('--landing-border-soft'), color: colorVar('--landing-surface-muted') }}>
-                    University / T-Nexus
+                    {tl.socialProofMainBadge}
                   </div>
                   <blockquote className="mt-8 text-[30px] font-semibold leading-[1.18] tracking-[-0.04em] md:text-[40px]" style={{ color: colorVar('--landing-surface-foreground') }}>
-                    "There's real power when your entire team only needs one platform for everything."
+                    {tl.socialProofMainQuote}
                   </blockquote>
                   <p className="mt-5 max-w-[30rem] text-[15px] leading-8" style={{ color: colorVar('--landing-surface-muted') }}>
-                    T-Nexus turns coursework, research and capstone coordination into a clean, transparent and far more manageable experience.
+                    {tl.socialProofMainDescription}
                   </p>
                   <button type="button" onClick={openIntro} className="mt-8 inline-flex items-center gap-2 text-sm font-medium" style={{ color: colorVar('--landing-blue') }}>
-                    Read the full story <ArrowRight className="h-4 w-4" />
+                    {tl.socialProofReadMore} <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
                 <button
@@ -1463,13 +1336,13 @@ export default function Landing() {
               <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
                 <div className="max-w-[760px]">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.26em]" style={{ color: colorVar('--landing-hero-subtle') }}>
-                    Start building today
+                    {tl.ctaEyebrow}
                   </p>
                   <h2 className="mt-4 text-[28px] font-semibold leading-tight tracking-[-0.04em] md:text-[42px]" style={{ color: colorVar('--landing-hero-foreground') }}>
-                    Start building a better team workflow today.
+                    {tl.ctaTitle}
                   </h2>
                   <p className="mt-5 max-w-[36rem] text-[16px] leading-8" style={{ color: colorVar('--landing-hero-muted') }}>
-                    Log in to use instantly on web or install as a desktop/mobile app via PWA.
+                    {tl.ctaDescription}
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -1479,8 +1352,8 @@ export default function Landing() {
                     className="h-12 rounded-full px-6 text-sm font-medium shadow-none"
                     style={{ backgroundColor: colorVar('--landing-hero-foreground'), color: colorVar('--landing-night') }}
                   >
-                    <Link to="/auth" className="flex items-center gap-2">
-                      Log in to T-Nexus <ArrowRight className="h-4 w-4" />
+                    <Link to={lp('/auth')} className="flex items-center gap-2">
+                      {tl.ctaLogIn} <ArrowRight className="h-4 w-4" />
                     </Link>
                   </Button>
                   <Button
@@ -1494,8 +1367,8 @@ export default function Landing() {
                       color: colorVar('--landing-hero-foreground'),
                     }}
                   >
-                    <Link to="/download" className="flex items-center gap-2">
-                      <Download className="h-4 w-4" /> Install app
+                    <Link to={lp('/download')} className="flex items-center gap-2">
+                      <Download className="h-4 w-4" /> {tc.installApp}
                     </Link>
                   </Button>
                 </div>
@@ -1512,49 +1385,49 @@ export default function Landing() {
                   <img src={tNexusLogo} alt="T-Nexus icon" className="h-12 w-12 md:h-16 md:w-16" />
                   <div className="flex flex-col justify-center">
                     <p className="mb-2.5 text-[12px] font-semibold uppercase tracking-[0.32em]" style={{ color: colorVar('--landing-hero-subtle') }}>
-                      T-Nexus platform
+                      {tc.tNexusPlatform}
                     </p>
                     <img src={tNexusTextWhite} alt="T-Nexus" className="h-[32px] w-auto shrink-0 object-contain object-left md:h-[42px]" />
                   </div>
                 </div>
                 <p className="mt-6 text-[16px] leading-8" style={{ color: colorVar('--landing-hero-muted') }}>
-                  More than task management. This is the teamwork operating system for students, leaders and projects that demand real transparency.
+                  {tc.footerDescription}
                 </p>
               </div>
 
               <div className="grid gap-8 sm:grid-cols-2 lg:flex lg:gap-10 xl:gap-16">
                 {[
                   {
-                    title: 'Product',
+                    title: tl.footerProduct,
                     links: [
-                      { label: 'Task Management', href: '#workspace-grid' },
-                      { label: 'Scoring', href: '#workspace-grid' },
-                      { label: 'AI Assistant', href: '#assistant-grid' },
-                      { label: 'Public Sharing', href: '#social-proof' },
+                      { label: tl.footerProductLinks[0], href: '#workspace-grid' },
+                      { label: tl.footerProductLinks[1], href: '#workspace-grid' },
+                      { label: tl.footerProductLinks[2], href: '#assistant-grid' },
+                      { label: tl.footerProductLinks[3], href: '#social-proof' },
                     ],
                   },
                   {
-                    title: 'Download',
+                    title: tc.download,
                     links: [
-                      { label: 'Web App', href: '/auth', external: false },
-                      { label: 'PWA Desktop', href: '/download', external: false },
-                      { label: 'PWA Mobile', href: '/download', external: false },
+                      { label: tl.footerDownloadLinks[0], href: lp('/auth'), external: false },
+                      { label: tl.footerDownloadLinks[1], href: lp('/download'), external: false },
+                      { label: tl.footerDownloadLinks[2], href: lp('/download'), external: false },
                     ],
                   },
                   {
-                    title: 'Resources',
+                    title: tl.footerResourcesTitle,
                     links: [
-                      { label: 'Product Demo', href: '#top' },
-                      { label: 'Efficiency', href: '#efficiency' },
-                      { label: 'Reviews', href: '#social-proof' },
+                      { label: tl.footerResourcesLinks[0], href: '#top' },
+                      { label: tl.footerResourcesLinks[1], href: '#efficiency' },
+                      { label: tl.footerResourcesLinks[2], href: '#social-proof' },
                     ],
                   },
                   {
-                    title: 'Contact',
+                    title: tl.footerContactTitle,
                     links: [
-                      { label: adminEmail || 'Coming soon', href: adminEmail ? `mailto:${adminEmail}` : '#resources' },
-                      { label: 'Log in', href: '/auth', external: false },
-                      { label: 'Install app', href: '/download', external: false },
+                      { label: adminEmail || tl.footerComingSoon, href: adminEmail ? `mailto:${adminEmail}` : '#resources' },
+                      { label: tc.login, href: lp('/auth'), external: false },
+                      { label: tc.installApp, href: lp('/download'), external: false },
                     ],
                   },
                 ].map((column) => (
@@ -1581,8 +1454,11 @@ export default function Landing() {
             </div>
 
             <div className="mt-12 flex flex-col gap-3 border-t pt-6 text-sm md:flex-row md:items-center md:justify-between" style={{ borderColor: colorVar('--landing-hero-foreground', 0.08), color: colorVar('--landing-hero-subtle') }}>
-              <span className="whitespace-nowrap">© 2025 T-Nexus. <span className="italic">Developed by Team-Nexus</span>. All rights reserved.</span>
-              <span>Designed for coursework, research and capstone project workflows.</span>
+              <span className="whitespace-nowrap">{tc.copyright} <span className="italic">{tc.developedBy}</span>. {tc.allRightsReserved}</span>
+              <div className="flex items-center gap-4">
+                <span>{tl.footerDesignedFor}</span>
+                <LanguageToggle variant="light" />
+              </div>
             </div>
           </div>
         </footer>
@@ -1604,7 +1480,7 @@ export default function Landing() {
                   <img src={tNexusLogo} alt="T-Nexus" className="h-5 w-auto" />
                   <div className="h-4 w-px bg-primary-foreground/30" />
                   <div>
-                    <h2 className="text-sm font-bold">Introducing T-Nexus</h2>
+                    <h2 className="text-sm font-bold">{tl.introTitle}</h2>
                     <p className="text-[10px] text-primary-foreground/70">Page {currentPage + 1} / {introPageComponents.length}</p>
                   </div>
                 </div>
@@ -1646,16 +1522,16 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => goPage('prev')} className="h-8 gap-1">
-                  <ChevronLeft className="h-4 w-4" /> Previous
+                  <ChevronLeft className="h-4 w-4" /> {tc.previous}
                 </Button>
                 {currentPage < introPageComponents.length - 1 ? (
                   <Button size="sm" onClick={() => goPage('next')} className="h-8 gap-1">
-                    Next <ChevronRight className="h-4 w-4" />
+                    {tc.next} <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button asChild size="sm" className="h-8 gap-1 shadow-md">
-                    <Link to="/auth" onClick={closeIntro}>
-                      Get started <ArrowRight className="h-4 w-4" />
+                    <Link to={lp('/auth')} onClick={closeIntro}>
+                      {tc.getStarted} <ArrowRight className="h-4 w-4" />
                     </Link>
                   </Button>
                 )}

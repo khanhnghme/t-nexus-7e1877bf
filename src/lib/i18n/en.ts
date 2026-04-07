@@ -1,0 +1,603 @@
+// English translations (default locale)
+export const en = {
+  common: {
+    login: 'Log in',
+    signup: 'Sign up',
+    getStarted: 'Get started',
+    download: 'Download',
+    installApp: 'Install app',
+    back: 'Back',
+    pricing: 'Pricing',
+    previous: 'Previous',
+    next: 'Next',
+    copyright: `© ${new Date().getFullYear()} T-Nexus.`,
+    developedBy: 'Developed by Team-Nexus',
+    allRightsReserved: 'All rights reserved.',
+    footerTagline: 'Designed for coursework, research and capstone project workflows.',
+    footerDescription: 'More than task management. This is the teamwork operating system for students, leaders and projects that demand real transparency.',
+    tNexusPlatform: 'T-Nexus platform',
+  },
+
+  nav: {
+    product: 'Product',
+    ai: 'AI',
+    solutions: 'Solutions',
+    resources: 'Resources',
+    enterprise: 'Enterprise',
+    pricing: 'Pricing',
+  },
+
+  landing: {
+    // Hero
+    heroBadge: 'The teamwork orchestration platform for students',
+    heroLine1: [
+      { word: 'The', color: '#A8D8EA' },
+      { word: 'night', color: '#B8A9E8' },
+      { word: 'shift', color: '#FFB7C5' },
+      { word: 'for', color: '#BFEAA8' },
+    ],
+    heroLine2: [
+      { word: 'your', color: '#FFD6A5' },
+      { word: 'teamwork.', color: '#A0E7E5' },
+    ],
+    heroDescription: 'T-Nexus keeps your work on track 24/7. It remembers context, answers questions, reminds deadlines and pushes your project forward — even when the whole team is\u00a0offline.',
+    ctaGetFree: 'Get T-Nexus free',
+    ctaWatchDemo: 'Watch demo',
+    ctaWatchWalkthrough: 'Watch product walkthrough',
+    ctaLogIn: 'Log in to T-Nexus',
+    trustedBy: 'Trusted by student teams who actually ship projects',
+
+    // Logo wall
+    logoWallRows: [
+      ['University', 'Research', 'IT Department', 'TeamWorks', 'T-Nexus', 'Students'],
+      ['Project Lab', 'Task Board', 'AI Notes', 'Workflow', 'Scoring', 'Realtime'],
+    ],
+
+    // Maintenance
+    maintenanceBadge: 'Scheduled maintenance in progress',
+    maintenanceLine1: [
+      { word: 'The', color: '#A8D8EA' },
+      { word: 'system', color: '#B8A9E8' },
+      { word: 'is', color: '#FFB7C5' },
+      { word: 'currently', color: '#BFEAA8' },
+    ],
+    maintenanceLine2: [
+      { word: 'under', color: '#FFD6A5' },
+      { word: 'maintenance.', color: '#A0E7E5' },
+    ],
+    maintenanceDescription: 'We are performing scheduled maintenance to improve your experience. All services will be fully restored shortly. Thank you for your patience.',
+    maintenanceInProgress: 'Maintenance in progress',
+    maintenancePleaseComeBack: 'Please come back later',
+    maintenanceReopeningSoon: 'Reopening soon...',
+    maintenanceBackOnline: 'The system will be back online once the update is complete.',
+    maintenanceHours: 'Hours',
+    maintenanceMinutes: 'Minutes',
+    maintenanceSeconds: 'Seconds',
+
+    // Stats
+    stats: [
+      '500+ active students',
+      '#1 team coursework experience',
+      '120+ active projects',
+      '5,000+ tasks completed',
+      'Available on web, desktop & mobile',
+      'Highly rated by team leaders',
+    ],
+
+    // Assistant section
+    assistantEyebrow: 'On-demand assistant',
+    assistantTitle: 'The right assistant, at the right moment.',
+    assistantCards: [
+      {
+        eyebrow: 'AI Assistant',
+        title: 'Ask about your project and get answers instantly.',
+        description: 'T-Nexus aggregates tasks, notes, scores and resources to respond with full context.',
+      },
+      {
+        eyebrow: 'Meeting Notes',
+        title: 'Clean, clear, and actionable meeting summaries.',
+        description: 'Summarize work, reassign owners and push next steps to your team.',
+      },
+      {
+        eyebrow: 'Scoring Signals',
+        title: 'Track progress, scores and deadline risks before it\'s too late.',
+        description: 'All critical signals surface early so leaders can act in time.',
+      },
+      {
+        eyebrow: 'Notifications',
+        title: 'Right deadline, right person, right time.',
+        description: 'Realtime notifications and digests keep your project moving even off-hours.',
+      },
+    ],
+
+    // Workspace section
+    workspaceEyebrow: 'Product workspace',
+    workspaceTitle: 'Bring all your work into one place.',
+    workspaceCards: [
+      {
+        eyebrow: 'Task Management',
+        title: 'Less manual tracking. More real progress.',
+        description: 'Kanban, assignments, deadlines and submissions all in the same workflow.',
+      },
+      {
+        eyebrow: 'Knowledge Base',
+        title: 'One source of truth for your team.',
+        description: 'Gather resources, notes, questions and work history in a single place.',
+      },
+      {
+        eyebrow: 'Scoring',
+        title: 'Transparent and verifiable grading.',
+        description: 'Formulas, weights and leaderboards presented clearly for every member.',
+      },
+      {
+        eyebrow: 'Projects',
+        title: 'Manage stages, members and overall progress.',
+        description: 'See your entire team\'s coursework or research at a glance.',
+      },
+      {
+        eyebrow: 'Sharing',
+        title: 'Share your project with instructors effortlessly.',
+        description: 'Create a clean, professional progress view for stakeholders.',
+      },
+      {
+        eyebrow: 'Insights',
+        title: 'Progress charts and team health at a glance.',
+        description: 'Key indicators always ready for leaders to make fast decisions.',
+      },
+    ],
+
+    // Efficiency section
+    efficiencyEyebrow: 'Workflow efficiency',
+    efficiencyTitle: 'More efficiency. Fewer tools.',
+    efficiencyDescription: 'Bring tasks, scoring, resources, meeting notes and public sharing into one unified system so your team stops losing time switching context.',
+    efficiencySeeInstall: 'See installation options',
+    efficiencyBefore: 'Before',
+    efficiencyWithTNexus: 'With T-Nexus',
+    efficiencyBeforeItems: [
+      'Scattered spreadsheets for keeping track of tasks and deadlines.',
+      'Endless chat scrolling to find assigned work and approvals.',
+      'Disorganized Drive folders with lost resources.',
+      'Manual grading forms and invisible evaluation process.',
+    ],
+    efficiencyAfterItems: [
+      'One unified workspace for the entire team workflow.',
+      'Clear task tracking with 24/7 automated reminders.',
+      'Centralized resources available instantly.',
+      'Transparent, automated scoring and leaderboards.',
+    ],
+    efficiencyStats: [
+      { value: '3x', label: 'faster aggregation time' },
+      { value: '100%', label: 'deadlines tracked centrally' },
+      { value: '1 place', label: 'for all team collaboration' },
+      { value: '0', label: 'repetitive data entry needed' },
+    ],
+
+    // Social proof section
+    socialProofEyebrow: 'Social proof',
+    socialProofTitle: 'Trusted by teams that deliver.',
+    socialProofMainBadge: 'University / T-Nexus',
+    socialProofMainQuote: '"There\'s real power when your entire team only needs one platform for everything."',
+    socialProofMainDescription: 'T-Nexus turns coursework, research and capstone coordination into a clean, transparent and far more manageable experience.',
+    socialProofReadMore: 'Read the full story',
+    socialQuotes: [
+      {
+        brand: 'University / Research',
+        quote: '"When everything is on one platform, our team works significantly faster with no lost information."',
+        role: 'Research team leader',
+      },
+      {
+        brand: 'TeamWorks',
+        quote: '"Clear workflows dramatically shortened our timeline and everyone knows exactly where they stand."',
+        role: 'Coursework project team',
+      },
+      {
+        brand: 'Project Lab',
+        quote: '"AI summaries and reminders save leaders so much time on manual aggregation."',
+        role: 'Product development team',
+      },
+      {
+        brand: 'IT Students',
+        quote: '"Transparent scoring gives everyone peace of mind when collaborating long-term."',
+        role: 'Graduation capstone',
+      },
+      {
+        brand: 'Design Studio',
+        quote: '"One place for tasks, resources, notifications and sharing links — exactly what our team needed."',
+        role: 'Communications team',
+      },
+      {
+        brand: 'Research Sprint',
+        quote: '"T-Nexus makes our progress reports to instructors look professional and convincing."',
+        role: 'Fast research group',
+      },
+    ],
+
+    // CTA section
+    ctaEyebrow: 'Start building today',
+    ctaTitle: 'Start building a better team workflow today.',
+    ctaDescription: 'Log in to use instantly on web or install as a desktop/mobile app via PWA.',
+
+    // Footer
+    footerProduct: 'Product',
+    footerProductLinks: ['Task Management', 'Scoring', 'AI Assistant', 'Public Sharing'],
+    footerDownloadLinks: ['Web App', 'PWA Desktop', 'PWA Mobile'],
+    footerResourcesTitle: 'Resources',
+    footerResourcesLinks: ['Product Demo', 'Efficiency', 'Reviews'],
+    footerContactTitle: 'Contact',
+    footerComingSoon: 'Coming soon',
+    footerDesignedFor: 'Designed for coursework, research and capstone project workflows.',
+
+    // Intro modal
+    introTitle: 'Introducing T-Nexus',
+    introPage: 'Page',
+    introPrevious: 'Previous',
+    introNext: 'Next',
+    introPageTitles: ['Overview', 'Tasks', 'Scoring', 'Projects', 'Advanced'],
+
+    // Loading
+    loadingHomepage: 'Loading homepage...',
+
+    // Hero signals
+    heroSignals: [
+      { label: 'AI Assistant', note: 'Instant answers' },
+      { label: 'Resources', note: 'Files & notes' },
+      { label: 'Scoring', note: 'Automated' },
+      { label: 'Deadlines', note: '24/7 reminders' },
+    ],
+  },
+
+  pricing: {
+    heroTitle: 'One platform to power your team.',
+    payMonthly: 'Pay monthly',
+    payYearly: 'Pay yearly',
+    yearlySaving: "🎉 You're saving 2 months!",
+    yearlySaveHint: 'Save 2 months with yearly',
+    priceInUsd: 'Price in USD',
+    recommended: 'Recommended',
+    perWorkspace: 'per workspace',
+    month: 'month',
+    mo: 'mo',
+    customPricing: 'pricing',
+    contactUs: 'Contact us →',
+    includes: 'Includes:',
+
+    // Section labels
+    essentialsLabel: 'Essentials for\nstaying organized.',
+    teamLabel: 'The workspace for\nteams that matter.',
+
+    // Plans
+    plans: {
+      free: {
+        name: 'Free',
+        description: 'For individuals to organize personal projects and life.',
+        cta: 'Sign up',
+        features: [
+          '1 project',
+          '100 MB storage',
+          '5 members / project',
+          'Meetings up to 15 min',
+          'Standard support',
+        ],
+      },
+      plus: {
+        name: 'Plus',
+        description: 'For small teams and professionals to work together.',
+        cta: 'Get started',
+        features: [
+          '5 projects',
+          '5 GB storage',
+          '12 members / project',
+          'Meetings up to 60 min',
+          'Activity logs (30 days)',
+          'Full data export',
+          'Priority support (7 days)',
+          'Add-ons available',
+        ],
+      },
+      pro: {
+        name: 'Pro',
+        description: 'For fast-growing teams to maximize productivity.',
+        cta: 'Get started',
+        features: [
+          '12 projects',
+          '25 GB storage',
+          '50 members / project',
+          'Unlimited meeting time',
+          'Unlimited activity logs',
+          'Full data export',
+          'High-priority support (72h)',
+          'Add-ons included, 10% off',
+        ],
+      },
+      business: {
+        name: 'Business',
+        description: 'For mid-to-large organizations to operate at scale.',
+        cta: 'Get started',
+        features: [
+          '50 projects',
+          '100 GB storage',
+          '200 members / project',
+          'Unlimited meeting time',
+          'Unlimited activity logs',
+          'Full data export',
+          'Express support (24h)',
+          'Add-ons included, 20% off',
+        ],
+      },
+      enterprise: {
+        name: 'Enterprise',
+        description: 'For organizations needing scalability, control, and security.',
+        cta: 'Contact Sales',
+        features: [
+          'Unlimited projects',
+          'Unlimited storage',
+          'Unlimited members',
+          'Unlimited meeting time',
+          'Enterprise-grade security',
+          'Full data export',
+          'Dedicated 24/7 support',
+          'Custom contracts',
+        ],
+      },
+    },
+
+    // Add-ons
+    addOnTitle: 'Add-on pricing',
+    addOnDescription: 'Available from Plus plan and above. Billed monthly per workspace.',
+    addOns: [
+      { emoji: '📦', name: 'Storage', price: '$0.99', unit: '/ 5 GB / month', note: 'Pro: ~$0.89 · Business: ~$0.79 per block' },
+      { emoji: '👥', name: 'Members', price: '$0.99', unit: '/ 5 members / month', note: 'Pro: 10% off · Business: 20% off' },
+    ],
+
+    // Comparison table
+    comparisonTitle: 'Plans and features',
+    comparisonCategories: [
+      {
+        category: 'Projects & Storage',
+        rows: [
+          { label: 'Projects', free: '1', plus: '5', pro: '12', business: '50', enterprise: 'Unlimited' },
+          { label: 'Storage', free: '100 MB', plus: '5 GB', pro: '25 GB', business: '100 GB', enterprise: 'Unlimited' },
+          { label: 'Members per project', free: '5', plus: '12', pro: '50', business: '200', enterprise: 'Unlimited' },
+        ],
+      },
+      {
+        category: 'Meetings & Communication',
+        rows: [
+          { label: 'Meeting duration', free: '15 min', plus: '60 min', pro: 'Unlimited', business: 'Unlimited', enterprise: 'Unlimited' },
+          { label: 'Activity logs', free: false, plus: '30 days', pro: 'Unlimited', business: 'Unlimited', enterprise: 'Unlimited' },
+        ],
+      },
+      {
+        category: 'Data & Tools',
+        rows: [
+          { label: 'Full data export', free: false, plus: true, pro: true, business: true, enterprise: true },
+          { label: 'Add-ons', free: false, plus: 'Available', pro: 'Included, 10% off', business: 'Included, 20% off', enterprise: 'Custom' },
+        ],
+      },
+      {
+        category: 'Support',
+        rows: [
+          { label: 'Support level', free: 'Standard', plus: 'Priority (7 days)', pro: 'High-priority (72h)', business: 'Express (24h)', enterprise: 'Dedicated 24/7' },
+        ],
+      },
+      {
+        category: 'Security & Compliance',
+        rows: [
+          { label: 'Enterprise-grade security', free: false, plus: false, pro: false, business: false, enterprise: true },
+          { label: 'Custom contracts', free: false, plus: false, pro: false, business: false, enterprise: true },
+        ],
+      },
+    ],
+
+    // FAQ
+    faqTitle: 'Questions & answers',
+    faqContact: 'Still have more questions?',
+    faqContactLink: 'Contact our support team',
+    faqItems: [
+      { q: 'How is pricing calculated for the paid plans?', a: 'Pricing is per workspace, billed monthly or yearly. Each workspace gets its own plan. You can have multiple workspaces under the same account.' },
+      { q: 'What payment methods do you accept?', a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express). For Enterprise plans, we also support invoicing and bank transfers.' },
+      { q: 'Can I change my plan later?', a: 'Yes! You can upgrade or downgrade your plan at any time from your workspace settings. Upgrades take effect immediately, and downgrades take effect at the end of your current billing period.' },
+      { q: 'What happens when I change plans?', a: 'When you upgrade, you will be charged a prorated amount for the remainder of the current billing cycle. When you downgrade, the change takes effect at the end of your billing period.' },
+      { q: 'Do you offer student discounts?', a: 'Yes, we offer a 50% discount on Plus and Pro plans for students with a valid .edu email address. Contact our support team to apply.' },
+      { q: 'How do I cancel my paid plan?', a: 'You can cancel your subscription at any time from your workspace settings. Your data will remain accessible until the end of the billing period, after which your workspace will revert to the Free plan.' },
+      { q: 'What happens if my payment fails?', a: 'We will retry the payment up to 3 times over a 7-day period. If payment continues to fail, your workspace will be downgraded to the Free plan. Your data will be preserved.' },
+      { q: 'How do refunds work?', a: 'We offer full refunds within 14 days of your initial purchase. After that, refunds are prorated based on the remaining time in your billing period. Contact support to request a refund.' },
+    ],
+
+    // Footer
+    footerProduct: 'Product',
+    footerResources: 'Resources',
+    footerContact: 'Contact',
+    footerProductLinks: ['Task Management', 'Scoring', 'AI Assistant', 'Public Sharing'],
+    footerResourceLinks: ['Product Demo', 'Efficiency', 'Reviews'],
+    footerContactLinks: ['Log in', 'Install app'],
+  },
+
+  auth: {
+    backHome: 'Home',
+    checking: 'Checking system...',
+    footerCopyright: `© ${new Date().getFullYear()} T-Nexus`,
+    // MemberAuthForm
+    memberBrand: 'T-Nexus - Member',
+    tabLogin: 'Log in',
+    tabRegister: 'Create account',
+    tabForgot: 'Forgot password',
+    loginDesc: 'Enter Student ID or Email and password to log in',
+    registerDesc: 'Fill in your information to register a new account',
+    forgotDesc: 'Enter Student ID and email to receive a verification code',
+    forgotOtpDesc: 'Enter the 6-digit OTP sent to your email',
+    forgotNewPassDesc: 'Enter a new password for your account',
+    forgotDoneDesc: 'Password has been reset successfully',
+    // Labels & placeholders
+    identifierLabel: 'Student ID or Email',
+    identifierPlaceholder: 'Student ID or Email',
+    passwordLabel: 'Password',
+    passwordPlaceholder: 'Password',
+    forgotPasswordLink: 'Forgot password?',
+    rememberLogin: 'Remember login',
+    loginBtn: 'Log in',
+    noAccount: "Don't have an account?",
+    registerNow: 'Register now',
+    // Register
+    studentIdLabel: 'Student ID',
+    studentIdPlaceholder: 'Enter Student ID',
+    fullNameLabel: 'Full name',
+    fullNamePlaceholder: 'Enter full name',
+    institutionLabel: 'Institution',
+    institutionPlaceholder: 'Select institution...',
+    institutionSearch: 'Search institution...',
+    institutionEmpty: 'No institution found.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'email@example.com',
+    confirmPasswordLabel: 'Confirm password',
+    confirmPasswordPlaceholder: 'Re-enter password',
+    registerBtn: 'Create account',
+    haveAccount: 'Already have an account?',
+    loginNow: 'Log in now',
+    // Policy
+    policyAgree: 'I agree with',
+    policyTitle: 'System Policy',
+    policyDialogDesc: 'T-Nexus system policy content.',
+    policyReadTerms: 'T-Nexus — Please read the terms carefully before using',
+    policyUpdated: 'Updated',
+    policyLastUpdated: 'Last updated',
+    policyNoContent: 'No policy content available.',
+    policyRequired: 'Please agree to the System Policy to continue',
+    policyRequiredRegister: 'Please agree to the System Policy to register',
+    // Forgot password
+    forgotStudentId: 'Student ID',
+    forgotStudentIdPlaceholder: 'Enter your Student ID',
+    forgotEmail: 'Email',
+    forgotEmailPlaceholder: 'Enter your email',
+    forgotSendOtp: 'Send verification code',
+    forgotOtpLabel: 'OTP Code',
+    forgotVerify: 'Verify',
+    forgotNewPassword: 'New password',
+    forgotNewPasswordPlaceholder: 'Enter new password (min. 6 characters)',
+    forgotConfirmPassword: 'Confirm new password',
+    forgotConfirmPlaceholder: 'Re-enter new password',
+    forgotResetBtn: 'Reset password',
+    forgotResetSuccess: 'Password reset successfully!',
+    forgotResetSuccessDesc: 'Your password has been updated. You can log in now.',
+    forgotLoginNow: '→ Log in now',
+    forgotBackToLogin: '← Back to login',
+    // Validation
+    valIdentifierRequired: 'Please enter Student ID or Email',
+    valPasswordMin: 'Password must be at least 6 characters',
+    valStudentIdRequired: 'Please enter Student ID',
+    valStudentIdMax: 'Student ID max 20 characters',
+    valFullNameRequired: 'Please enter full name',
+    valFullNameMax: 'Full name max 100 characters',
+    valInstitutionRequired: 'Please select an institution',
+    valEmailInvalid: 'Invalid email',
+    valEmailMax: 'Email max 255 characters',
+    valConfirmPasswordMin: 'Confirm password must be at least 6 characters',
+    valPasswordMismatch: 'Passwords do not match',
+    valPasswordMinForgot: 'Password must be at least 6 characters',
+    valPasswordMismatchForgot: 'Passwords do not match',
+    // Toasts & errors
+    toastSystemError: 'System error',
+    toastCannotCheckId: 'Cannot check Student ID.',
+    toastIdNotExist: 'Student ID not found',
+    toastIdNotExistDesc: 'This Student ID is not registered. You can switch to the "Create account" tab to register.',
+    toastPendingApproval: 'Account pending approval',
+    toastPendingApprovalDesc: 'Your account has been created but is pending admin approval. Please try again later.',
+    toastEmailNotExist: 'Email not found',
+    toastEmailNotExistDesc: 'This email is not registered. You can switch to the "Create account" tab to register.',
+    toastLoginFailed: 'Login failed',
+    toastInvalidCredentials: 'Student ID/Email or password is incorrect',
+    toastLoginSuccess: 'Login successful',
+    toastWelcomeBack: 'Welcome back!',
+    toastGenericError: 'An error occurred. Please try again later.',
+    toastIdAlreadyExists: 'Student ID already exists',
+    toastIdAlreadyExistsDesc: 'This Student ID is already registered in the system.',
+    toastEmailAlreadyExists: 'Email already exists',
+    toastRegisterFailed: 'Registration failed',
+    toastCheckEmail: 'Check your email',
+    toastOtpSent: 'A 6-digit OTP has been sent to your email.',
+    // Pending approval screen
+    pendingTitle: 'Account pending approval',
+    pendingDesc: 'Your account has been created successfully. Please wait for admin approval before using the system.',
+    pendingFullName: 'Full name:',
+    pendingStudentId: 'Student ID:',
+    pendingEmail: 'Email:',
+    pendingLogout: 'Log out',
+    // Email verified
+    emailVerifiedTitle: 'Email verified successfully!',
+    emailVerifiedDesc: 'You can log in now.',
+    emailVerifiedBtn: 'Log in now',
+    // Register success
+    registerSuccessTitle: 'Registration successful!',
+    registerAutoApproved: 'Account has been auto-approved.',
+    registerPendingAdmin: 'Waiting for admin approval',
+    registerLoginAfterApproval: 'Log in with Student ID and password after approval.',
+    registerLoginNow: 'Log in now',
+    registerBackToLogin: 'Back to login',
+    // Block popup
+    blockMaintenanceTitle: 'System under maintenance',
+    blockMaintenanceDesc: 'All services are temporarily paused for a system upgrade. Please try again later.',
+    blockMaintenanceEstimate: 'Estimated completion:',
+    blockSuspendedTitle: 'Account suspended',
+    blockSuspendedDesc: 'Your account has been suspended and you cannot log in at this time.',
+    blockSuspendedUntil: 'Suspended until:',
+    blockSuspendedReason: 'Reason:',
+    blockUnderstood: 'Understood',
+    // Forgot password flow
+    forgotNoUserFound: 'No account found with that Student ID.',
+    forgotEmailMismatch: 'The email does not match the registered email for this Student ID.',
+    forgotOtpSentSuccess: 'Verification code sent',
+    forgotOtpSentDesc: 'A 6-digit code has been sent to your email.',
+    forgotOtpError: 'Error',
+    forgotCannotSendOtp: 'Cannot send verification code',
+    forgotResetError: 'Cannot reset password',
+    forgotOtpIncorrect: 'Incorrect OTP code',
+    // Register form extra
+    passwordMinPlaceholder: 'Min. 6 characters',
+    adminApprovalNote: 'After creating, the account needs Admin approval before use.',
+    forgotEnterDesc: 'Enter the Student ID and email you registered. The system will send a 6-digit OTP to your email.',
+    forgotNewPassForAccount: 'Enter a new password for the account',
+    forgotNewPassPlaceholder: 'Min. 6 characters',
+    forgotConfirmLabel: 'Confirm new password',
+    forgotConfirmNewPlaceholder: 'Re-enter new password',
+    forgotResetButton: 'Reset password',
+    forgotStudentIdLabel: 'Student ID (MSSV)',
+    forgotEmailLabel: 'Registered Email',
+    forgotEmailRequiredError: 'Please enter email',
+    forgotSendButton: 'Send OTP code',
+    forgotOtpSentToast: 'OTP code sent',
+    forgotOtpSentToastDesc: 'A 6-digit code has been sent to your email.',
+    forgotCannotSendToast: 'Cannot send OTP',
+    forgotOtpEnterLabel: 'Enter 6-digit OTP code',
+    forgotOtpVerifyButton: 'Verify OTP',
+    forgotOtpInvalidToast: 'Invalid OTP',
+    forgotOtpCannotVerifyToast: 'Cannot verify OTP',
+  },
+
+  download: {
+    backHome: 'Home',
+    subtitle: 'Install the app directly from your browser',
+    alreadyRunning: 'You are using the app',
+    alreadyRunningDesc: 'T-Nexus has been installed and is running in app mode.',
+    installedSuccess: 'Installed successfully!',
+    installedSuccessDesc: 'T-Nexus is now on your home screen / desktop.',
+    installTitle: 'Install app',
+    installDesc: 'Install T-Nexus as an app on your device. No file downloads, no app store needed.',
+    installNow: 'Install now',
+    free: 'Free',
+    lightweight: 'Lightweight, no storage needed',
+    manualTitle: 'Manual installation',
+    manualDesc: 'Your browser does not support automatic installation. Please follow the instructions:',
+    iosStep1Share: 'Tap the',
+    iosStep1ShareBtn: 'Share',
+    iosStep1End: 'button in Safari bottom bar',
+    iosStep2: 'Select "Add to Home Screen"',
+    iosStep3: 'Tap "Add" to confirm',
+    androidStep1: 'Tap the ⋮ (menu) icon in Chrome/Edge top right',
+    androidStep2: 'Select "Install app" or "Add to Home Screen"',
+    androidStep3: 'Tap "Install" to finish',
+    footer: `© ${new Date().getFullYear()} T-Nexus · Need help? Contact your administrator.`,
+  },
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Translations = Record<string, any>;

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { TNexusLogo } from '@/components/TNexusLogo';
 import { OtpVerifyScreen } from '@/components/OtpVerifyScreen';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,32 +18,32 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Hash, Lock, Users, Mail, User, UserPlus, LogIn, FileText, Shield, KeyRound, AlertTriangle, GraduationCap, Check, ChevronsUpDown, CheckCircle2, Wrench, ShieldAlert } from 'lucide-react';
-import uehLogoWhite from '@/assets/t-nexus-text-white.png';
+import tNexusLogoWhite from '@/assets/t-nexus-text-white.png';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { INSTITUTIONS, REGIONS, searchInstitutions } from '@/lib/institutions';
 import { cn } from '@/lib/utils';
 
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { format, type Locale } from 'date-fns';
+import { vi as viLocale, enUS } from 'date-fns/locale';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 
-const loginSchema = z.object({
-  identifier: z.string().min(1, 'Vui lòng nhập MSSV hoặc Email'),
-  password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
+const loginSchema = (ta: Record<string, string>) => z.object({
+  identifier: z.string().min(1, ta.valIdentifierRequired),
+  password: z.string().min(6, ta.valPasswordMin),
 });
 
-const registerSchema = z.object({
-  studentId: z.string().min(1, 'Vui lòng nhập MSSV').max(20, 'MSSV tối đa 20 ký tự'),
-  fullName: z.string().min(1, 'Vui lòng nhập họ tên').max(100, 'Họ tên tối đa 100 ký tự'),
-  institution: z.string().min(1, 'Vui lòng chọn đơn vị đào tạo'),
-  email: z.string().email('Email không hợp lệ').max(255, 'Email tối đa 255 ký tự'),
-  password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
-  confirmPassword: z.string().min(6, 'Xác nhận mật khẩu tối thiểu 6 ký tự'),
+const registerSchema = (ta: Record<string, string>) => z.object({
+  studentId: z.string().min(1, ta.valStudentIdRequired).max(20, ta.valStudentIdMax),
+  fullName: z.string().min(1, ta.valFullNameRequired).max(100, ta.valFullNameMax),
+  institution: z.string().min(1, ta.valInstitutionRequired),
+  email: z.string().email(ta.valEmailInvalid).max(255, ta.valEmailMax),
+  password: z.string().min(6, ta.valPasswordMin),
+  confirmPassword: z.string().min(6, ta.valConfirmPasswordMin),
 }).refine(data => data.password === data.confirmPassword, {
-  message: 'Mật khẩu xác nhận không khớp',
+  message: ta.valPasswordMismatch,
   path: ['confirmPassword'],
 });
 
@@ -52,12 +53,16 @@ function PolicyCheckbox({
   policyContent,
   policyUpdatedAt,
   error,
+  ta,
+  dateLocale,
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   policyContent: string;
   policyUpdatedAt: string | null;
   error?: string;
+  ta: Record<string, string>;
+  dateLocale: Locale;
 }) {
   return (
     <div className="space-y-1">
@@ -70,19 +75,19 @@ function PolicyCheckbox({
         />
         <div className="text-xs leading-none flex items-baseline gap-1 flex-wrap">
           <label htmlFor="policy-agree" className="cursor-pointer">
-            Tôi đồng ý với
+            {ta.policyAgree}
           </label>
           <Dialog>
             <DialogTrigger asChild>
               <button type="button" className="text-warning hover:underline font-semibold">
-                Chính sách hệ thống
+                {ta.policyTitle}
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-[95vw] w-[1280px] h-[720px] max-h-[90vh] p-0 overflow-hidden flex flex-col border-0 shadow-2xl">
               <DialogDescription className="sr-only">
-                Nội dung chính sách hệ thống T-Nexus.
+                {ta.policyDialogDesc}
               </DialogDescription>
-              {/* Header with UEH branding */}
+              {/* Header with T-Nexus branding */}
               <div className="relative shrink-0 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-accent" />
                 <div className="absolute inset-0 opacity-10" style={{
@@ -90,17 +95,17 @@ function PolicyCheckbox({
                 }} />
                 <div className="relative px-6 py-5 flex items-center gap-4">
                   <div className="p-2 rounded-xl">
-                                          <img src={uehLogoWhite} alt="Logo" style={{ width: 56, height: 'auto' }} />
+                                          <img src={tNexusLogoWhite} alt="Logo" style={{ width: 56, height: 'auto' }} />
                   </div>
                   <div className="text-primary-foreground">
-                    <DialogTitle className="text-xl font-bold">Chính sách hệ thống</DialogTitle>
+                    <DialogTitle className="text-xl font-bold">{ta.policyTitle}</DialogTitle>
                     <p className="text-sm opacity-80">
-                      T-Nexus — Vui lòng đọc kỹ các điều khoản trước khi sử dụng
+                      {ta.policyReadTerms}
                     </p>
                   </div>
                   {policyUpdatedAt && (
                     <Badge className="ml-auto bg-white/20 text-primary-foreground border-0 backdrop-blur-sm text-xs">
-                      Cập nhật: {format(new Date(policyUpdatedAt), "dd/MM/yyyy", { locale: vi })}
+                      {ta.policyUpdated}: {format(new Date(policyUpdatedAt), "dd/MM/yyyy", { locale: dateLocale })}
                     </Badge>
                   )}
                 </div>
@@ -114,7 +119,7 @@ function PolicyCheckbox({
                   ) : (
                     <div className="text-center py-16">
                       <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                      <p className="text-muted-foreground">Chưa có nội dung chính sách.</p>
+                      <p className="text-muted-foreground">{ta.policyNoContent}</p>
                     </div>
                   )}
                 </div>
@@ -125,7 +130,7 @@ function PolicyCheckbox({
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5" />
                   {policyUpdatedAt
-                    ? `Cập nhật lần cuối: ${format(new Date(policyUpdatedAt), "HH:mm 'ngày' dd/MM/yyyy", { locale: vi })}`
+                    ? `${ta.policyLastUpdated}: ${format(new Date(policyUpdatedAt), "HH:mm 'ngày' dd/MM/yyyy", { locale: dateLocale })}`
                     : 'T-Nexus'}
                 </p>
                 <p className="text-[10px] text-muted-foreground">© T-Nexus</p>
@@ -133,7 +138,7 @@ function PolicyCheckbox({
             </DialogContent>
           </Dialog>
           {policyUpdatedAt && (
-            <span className="text-[10px] text-muted-foreground leading-none">· {format(new Date(policyUpdatedAt), "dd/MM/yyyy", { locale: vi })}</span>
+            <span className="text-[10px] text-muted-foreground leading-none">· {format(new Date(policyUpdatedAt), "dd/MM/yyyy", { locale: dateLocale })}</span>
           )}
         </div>
       </div>
@@ -147,6 +152,9 @@ export function MemberAuthForm() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isEmailVerified = searchParams.get('verified') === 'true';
   const { signIn, signOut, user, profile, isLoading: authLoading, maintenanceMode, isAdmin } = useAuth();
+  const { translations, locale } = useLanguage();
+  const ta = translations.auth;
+  const dateLocale = locale === 'vi' ? viLocale : enUS;
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -240,14 +248,14 @@ export function MemberAuthForm() {
             <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto">
               <Loader2 className="w-8 h-8 text-amber-600 dark:text-amber-400" />
             </div>
-            <h2 className="text-xl font-heading font-semibold">Tài khoản đang chờ duyệt</h2>
+            <h2 className="text-xl font-heading font-semibold">{ta.pendingTitle}</h2>
             <p className="text-sm text-muted-foreground">
-              Tài khoản của bạn đã được tạo thành công. Vui lòng chờ Admin xét duyệt trước khi sử dụng hệ thống.
+              {ta.pendingDesc}
             </p>
             <div className="bg-muted/50 rounded-lg p-3 text-left text-sm space-y-1">
-              <p><span className="text-muted-foreground">Họ tên:</span> <span className="font-medium">{profile.full_name}</span></p>
-              <p><span className="text-muted-foreground">MSSV:</span> <span className="font-medium">{profile.student_id}</span></p>
-              <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{profile.email}</span></p>
+              <p><span className="text-muted-foreground">{ta.pendingFullName}</span> <span className="font-medium">{profile.full_name}</span></p>
+              <p><span className="text-muted-foreground">{ta.pendingStudentId}</span> <span className="font-medium">{profile.student_id}</span></p>
+              <p><span className="text-muted-foreground">{ta.pendingEmail}</span> <span className="font-medium">{profile.email}</span></p>
             </div>
             <Button
               variant="outline"
@@ -257,7 +265,7 @@ export function MemberAuthForm() {
                 window.location.reload();
               }}
             >
-              Đăng xuất
+              {ta.pendingLogout}
             </Button>
           </CardContent>
         </Card>
@@ -270,11 +278,11 @@ export function MemberAuthForm() {
     setErrors({});
 
     if (!loginPolicyAgreed) {
-      setErrors({ policy: 'Vui lòng đồng ý với Chính sách hệ thống để tiếp tục' });
+      setErrors({ policy: ta.policyRequired });
       return;
     }
 
-    const result = loginSchema.safeParse({ identifier, password });
+    const result = loginSchema(ta).safeParse({ identifier, password });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
@@ -299,15 +307,15 @@ export function MemberAuthForm() {
 
         if (lookupError) {
           setIsLoading(false);
-          toast({ title: 'Lỗi hệ thống', description: 'Không thể kiểm tra MSSV.', variant: 'destructive' });
+          toast({ title: ta.toastSystemError, description: ta.toastCannotCheckId, variant: 'destructive' });
           return;
         }
 
         if (!foundEmail) {
           setIsLoading(false);
           toast({
-            title: 'MSSV không tồn tại',
-            description: 'Mã số sinh viên này chưa được đăng ký trong hệ thống. Bạn có thể chuyển sang tab "Tạo tài khoản" để đăng ký.',
+            title: ta.toastIdNotExist,
+            description: ta.toastIdNotExistDesc,
             variant: 'destructive',
           });
           return;
@@ -325,8 +333,8 @@ export function MemberAuthForm() {
       if (profileData && !profileData.is_approved) {
         setIsLoading(false);
         toast({
-          title: 'Tài khoản chờ duyệt',
-          description: 'Tài khoản của bạn đã được tạo nhưng đang chờ Admin xét duyệt. Vui lòng thử lại sau.',
+          title: ta.toastPendingApproval,
+          description: ta.toastPendingApprovalDesc,
         });
         return;
       }
@@ -334,8 +342,8 @@ export function MemberAuthForm() {
       if (isEmail && !profileData) {
         setIsLoading(false);
         toast({
-          title: 'Email không tồn tại',
-          description: 'Email này chưa được đăng ký trong hệ thống. Bạn có thể chuyển sang tab "Tạo tài khoản" để đăng ký.',
+          title: ta.toastEmailNotExist,
+          description: ta.toastEmailNotExistDesc,
           variant: 'destructive',
         });
         return;
@@ -353,8 +361,8 @@ export function MemberAuthForm() {
         sessionStorage.removeItem('t-nexus_login_in_progress');
         setIsLoading(false);
         toast({
-          title: 'Đăng nhập thất bại',
-          description: error.message === 'Invalid login credentials' ? 'MSSV/Email hoặc mật khẩu không đúng' : error.message,
+          title: ta.toastLoginFailed,
+          description: error.message === 'Invalid login credentials' ? ta.toastInvalidCredentials : error.message,
           variant: 'destructive',
         });
       } else {
@@ -432,7 +440,7 @@ export function MemberAuthForm() {
         }
         pendingLoginRef.current = false;
         sessionStorage.removeItem('t-nexus_login_in_progress');
-        toast({ title: 'Đăng nhập thành công', description: 'Chào mừng bạn quay lại!' });
+        toast({ title: ta.toastLoginSuccess, description: ta.toastWelcomeBack });
         navigate('/dashboard');
       }
     } catch (err) {
@@ -448,11 +456,11 @@ export function MemberAuthForm() {
     setErrors({});
 
     if (!regPolicyAgreed) {
-      setErrors({ policy: 'Vui lòng đồng ý với Chính sách hệ thống để đăng ký' });
+      setErrors({ policy: ta.policyRequiredRegister });
       return;
     }
 
-    const result = registerSchema.safeParse({
+    const result = registerSchema(ta).safeParse({
       studentId: regStudentId,
       fullName: regFullName,
       institution: regInstitution,
@@ -478,7 +486,7 @@ export function MemberAuthForm() {
 
       if (existingEmail) {
         setIsLoading(false);
-        toast({ title: 'MSSV đã tồn tại', description: 'Mã số sinh viên này đã được đăng ký trong hệ thống.', variant: 'destructive' });
+        toast({ title: ta.toastIdAlreadyExists, description: ta.toastIdAlreadyExistsDesc, variant: 'destructive' });
         return;
       }
 
@@ -498,13 +506,13 @@ export function MemberAuthForm() {
       if (registerError || !registerData?.success) {
         isRegisteringRef.current = false;
         setIsLoading(false);
-        const errMsg = registerData?.error || registerError?.message || 'Đăng ký thất bại';
-        if (errMsg.includes('MSSV đã tồn tại')) {
-          toast({ title: 'MSSV đã tồn tại', description: errMsg, variant: 'destructive' });
-        } else if (errMsg.includes('Email đã được sử dụng')) {
-          toast({ title: 'Email đã tồn tại', description: errMsg, variant: 'destructive' });
+        const errMsg = registerData?.error || registerError?.message || ta.toastRegisterFailed;
+        if (errMsg.includes('MSSV') || errMsg.includes('Student ID')) {
+          toast({ title: ta.toastIdAlreadyExists, description: errMsg, variant: 'destructive' });
+        } else if (errMsg.includes('Email')) {
+          toast({ title: ta.toastEmailAlreadyExists, description: errMsg, variant: 'destructive' });
         } else {
-          toast({ title: 'Đăng ký thất bại', description: errMsg, variant: 'destructive' });
+          toast({ title: ta.toastRegisterFailed, description: errMsg, variant: 'destructive' });
         }
       } else {
         // Backend created user + sent OTP, no session exists on client
@@ -512,8 +520,8 @@ export function MemberAuthForm() {
         setIsLoading(false);
         setRegisterSuccess('verify_email');
         toast({
-          title: 'Kiểm tra email',
-          description: 'Mã OTP 6 số đã được gửi đến email của bạn.',
+          title: ta.toastCheckEmail,
+          description: ta.toastOtpSent,
         });
       }
     } catch (err) {
@@ -537,8 +545,8 @@ export function MemberAuthForm() {
           <CardContent className="py-5 px-4 text-center space-y-3">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
             <div>
-              <h2 className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">Xác thực email thành công!</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Bạn có thể đăng nhập ngay bây giờ.</p>
+              <h2 className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">{ta.emailVerifiedTitle}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{ta.emailVerifiedDesc}</p>
             </div>
             <Button
               size="sm"
@@ -548,7 +556,7 @@ export function MemberAuthForm() {
                 setSearchParams(searchParams, { replace: true });
               }}
             >
-              Đăng nhập ngay
+              {ta.emailVerifiedBtn}
             </Button>
           </CardContent>
         </Card>
@@ -588,30 +596,30 @@ export function MemberAuthForm() {
               <>
                 <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
                 <div>
-                  <h2 className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">Đăng ký thành công!</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Tài khoản đã được duyệt tự động.</p>
+                  <h2 className="text-base font-heading font-bold text-emerald-600 dark:text-emerald-400">{ta.registerSuccessTitle}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{ta.registerAutoApproved}</p>
                 </div>
                 <div className="bg-muted/50 rounded-md p-2 text-left text-xs space-y-0.5">
-                  <p><span className="text-muted-foreground">MSSV:</span> <span className="font-medium">{regStudentId}</span></p>
-                  <p><span className="text-muted-foreground">Họ tên:</span> <span className="font-medium">{regFullName}</span></p>
-                  <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{regEmail}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingStudentId}</span> <span className="font-medium">{regStudentId}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingFullName}</span> <span className="font-medium">{regFullName}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingEmail}</span> <span className="font-medium">{regEmail}</span></p>
                 </div>
               </>
             ) : (
               <>
                 <UserPlus className="w-10 h-10 text-amber-500 mx-auto" />
                 <div>
-                  <h2 className="text-base font-heading font-bold">Đăng ký thành công!</h2>
+                  <h2 className="text-base font-heading font-bold">{ta.registerSuccessTitle}</h2>
                   <div className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-medium mt-0.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Chờ Admin duyệt
+                    <Loader2 className="w-3 h-3 animate-spin" /> {ta.registerPendingAdmin}
                   </div>
                 </div>
                 <div className="bg-muted/50 rounded-md p-2 text-left text-xs space-y-0.5">
-                  <p><span className="text-muted-foreground">MSSV:</span> <span className="font-medium">{regStudentId}</span></p>
-                  <p><span className="text-muted-foreground">Họ tên:</span> <span className="font-medium">{regFullName}</span></p>
-                  <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{regEmail}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingStudentId}</span> <span className="font-medium">{regStudentId}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingFullName}</span> <span className="font-medium">{regFullName}</span></p>
+                  <p><span className="text-muted-foreground">{ta.pendingEmail}</span> <span className="font-medium">{regEmail}</span></p>
                 </div>
-                <p className="text-xs text-muted-foreground">Đăng nhập bằng MSSV và mật khẩu sau khi được duyệt.</p>
+                <p className="text-xs text-muted-foreground">{ta.registerLoginAfterApproval}</p>
               </>
             )}
 
@@ -630,7 +638,7 @@ export function MemberAuthForm() {
                 setRegConfirmPassword('');
               }}
             >
-              {isApproved ? 'Đăng nhập ngay' : 'Quay lại đăng nhập'}
+              {isApproved ? ta.registerLoginNow : ta.registerBackToLogin}
             </Button>
           </CardContent>
         </Card>
@@ -644,39 +652,39 @@ export function MemberAuthForm() {
       <div className="mb-6 flex flex-col items-center gap-2">
         <TNexusLogo variant="text" width={120} />
         <span className="font-heading font-semibold text-primary flex items-center gap-1">
-          <Users className="w-4 h-4" /> T-Nexus - Thành viên
+          <Users className="w-4 h-4" /> {ta.memberBrand}
         </span>
       </div>
       <Card className="w-full shadow-card-lg border-border/50">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-lg font-heading">
-            {activeTab === 'login' ? 'Đăng nhập' : activeTab === 'register' ? 'Tạo tài khoản' : 'Quên mật khẩu'}
+            {activeTab === 'login' ? ta.tabLogin : activeTab === 'register' ? ta.tabRegister : ta.tabForgot}
           </CardTitle>
             <CardDescription>
               {activeTab === 'login'
-                ? 'Nhập MSSV hoặc Email và mật khẩu để đăng nhập'
+                ? ta.loginDesc
                 : activeTab === 'register'
-                ? 'Điền thông tin để đăng ký tài khoản mới'
+                ? ta.registerDesc
                 : forgotStep === 'done'
-                ? 'Mật khẩu đã được đặt lại thành công'
+                ? ta.forgotDoneDesc
                 : forgotStep === 'newpass'
-                ? 'Nhập mật khẩu mới cho tài khoản'
+                ? ta.forgotNewPassDesc
                 : forgotStep === 'otp'
-                ? 'Nhập mã OTP 6 số đã gửi đến email'
-                : 'Nhập MSSV và email để nhận mã xác minh'}
+                ? ta.forgotOtpDesc
+                : ta.forgotDesc}
             </CardDescription>
         </CardHeader>
         <CardContent>
           {activeTab === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="login-identifier">MSSV hoặc Email</Label>
+                <Label htmlFor="login-identifier">{ta.identifierLabel}</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="login-identifier"
                     type="text"
-                    placeholder="MSSV hoặc Email"
+                    placeholder={ta.identifierPlaceholder}
                     className="pl-10"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
@@ -687,13 +695,13 @@ export function MemberAuthForm() {
                 {errors.identifier && <p className="text-sm text-destructive">{errors.identifier}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Mật khẩu</Label>
+                <Label htmlFor="login-password">{ta.passwordLabel}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="login-password"
                     type="password"
-                    placeholder="Mật khẩu"
+                    placeholder={ta.passwordPlaceholder}
                     className="pl-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -707,7 +715,7 @@ export function MemberAuthForm() {
                     className="text-xs font-medium text-foreground hover:underline"
                     onClick={() => { setActiveTab('forgot'); setForgotStep('input'); setErrors({}); }}
                   >
-                    Quên mật khẩu?
+                    {ta.forgotPasswordLink}
                   </button>
                 </div>
               </div>
@@ -721,7 +729,7 @@ export function MemberAuthForm() {
                   className="shrink-0 h-3.5 w-3.5 rounded-full border border-muted-foreground/40 data-[state=checked]:border-primary data-[state=checked]:bg-transparent transition-all duration-200 [&_svg]:h-3 [&_svg]:w-3 [&_svg]:text-primary"
                 />
                 <label htmlFor="remember-login" className="text-xs text-muted-foreground cursor-pointer select-none">
-                  Nhớ đăng nhập
+                  {ta.rememberLogin}
                 </label>
               </div>
 
@@ -732,20 +740,22 @@ export function MemberAuthForm() {
                 policyContent={policyContent}
                 policyUpdatedAt={policyUpdatedAt}
                 error={errors.policy}
+                ta={ta}
+                dateLocale={dateLocale}
               />
 
               <Button type="submit" className="w-full font-semibold" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Đăng nhập
+                {ta.loginBtn}
               </Button>
               <p className="text-sm text-center text-muted-foreground">
-                Chưa có tài khoản?{' '}
+                {ta.noAccount}{' '}
                 <button
                   type="button"
                   className="text-primary hover:underline font-medium"
                   onClick={() => { setActiveTab('register'); setErrors({}); }}
                 >
-                  Đăng ký ngay
+                  {ta.registerNow}
                 </button>
               </p>
             </form>
@@ -756,9 +766,9 @@ export function MemberAuthForm() {
                   <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
                     <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <h3 className="text-lg font-heading font-semibold text-emerald-700 dark:text-emerald-400">Đặt lại mật khẩu thành công!</h3>
+                  <h3 className="text-lg font-heading font-semibold text-emerald-700 dark:text-emerald-400">{ta.forgotResetSuccess}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Mật khẩu của bạn đã được cập nhật. Bạn có thể đăng nhập ngay bây giờ.
+                    {ta.forgotResetSuccessDesc}
                   </p>
                   <Button
                     className="w-full"
@@ -774,7 +784,7 @@ export function MemberAuthForm() {
                       setErrors({});
                     }}
                   >
-                    → Đăng nhập ngay
+                    {ta.forgotLoginNow}
                   </Button>
                 </div>
               ) : forgotStep === 'newpass' ? (
@@ -782,11 +792,11 @@ export function MemberAuthForm() {
                   e.preventDefault();
                   setErrors({});
                   if (!newPassword || newPassword.length < 6) {
-                    setErrors({ newPass: 'Mật khẩu tối thiểu 6 ký tự' });
+                    setErrors({ newPass: ta.valPasswordMinForgot });
                     return;
                   }
                   if (newPassword !== newPasswordConfirm) {
-                    setErrors({ newPassConfirm: 'Mật khẩu xác nhận không khớp' });
+                    setErrors({ newPassConfirm: ta.valPasswordMismatchForgot });
                     return;
                   }
                   setForgotLoading(true);
@@ -796,7 +806,7 @@ export function MemberAuthForm() {
                     });
                     setForgotLoading(false);
                     if (error || !data?.success) {
-                      toast({ title: 'Lỗi', description: data?.error || 'Không thể đặt lại mật khẩu', variant: 'destructive' });
+                      toast({ title: ta.forgotOtpError, description: data?.error || ta.forgotResetError, variant: 'destructive' });
                     } else {
                       setForgotStep('done');
                     }
@@ -806,38 +816,38 @@ export function MemberAuthForm() {
                   }
                 }} className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
-                    Nhập mật khẩu mới cho tài khoản <span className="font-medium text-foreground">{forgotEmail}</span>
+                    {ta.forgotNewPassForAccount} <span className="font-medium text-foreground">{forgotEmail}</span>
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="new-pass">Mật khẩu mới</Label>
+                    <Label htmlFor="new-pass">{ta.forgotNewPassword}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="new-pass" type="password" placeholder="Tối thiểu 6 ký tự" className="pl-10" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={forgotLoading} autoFocus />
+                      <Input id="new-pass" type="password" placeholder={ta.forgotNewPassPlaceholder} className="pl-10" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={forgotLoading} autoFocus />
                     </div>
                     {errors.newPass && <p className="text-sm text-destructive">{errors.newPass}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="new-pass-confirm">Xác nhận mật khẩu mới</Label>
+                    <Label htmlFor="new-pass-confirm">{ta.forgotConfirmLabel}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="new-pass-confirm" type="password" placeholder="Nhập lại mật khẩu" className="pl-10" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} disabled={forgotLoading} />
+                      <Input id="new-pass-confirm" type="password" placeholder={ta.forgotConfirmNewPlaceholder} className="pl-10" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} disabled={forgotLoading} />
                     </div>
                     {errors.newPassConfirm && <p className="text-sm text-destructive">{errors.newPassConfirm}</p>}
                   </div>
                   <Button type="submit" className="w-full font-semibold" disabled={forgotLoading}>
                     {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
-                    Đặt lại mật khẩu
+                    {ta.forgotResetButton}
                   </Button>
                   <p className="text-sm text-center">
                     <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setForgotStep('otp'); setNewPassword(''); setNewPasswordConfirm(''); }}>
-                      ← Quay lại
+                      ← {ta.forgotBackToLogin}
                     </button>
                   </p>
                 </form>
               ) : forgotStep === 'otp' ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
-                    Nhập mã 6 số đã gửi đến <span className="font-medium text-foreground">{forgotEmail}</span>
+                    {ta.forgotOtpDesc} <span className="font-medium text-foreground">{forgotEmail}</span>
                   </p>
                   <div className="flex justify-center">
                     <InputOTP
@@ -872,23 +882,23 @@ export function MemberAuthForm() {
                         });
                         setForgotLoading(false);
                         if (error || !data?.success) {
-                          setErrors({ otp: data?.error || 'Mã không đúng hoặc đã hết hạn' });
+                          setErrors({ otp: data?.error || ta.forgotOtpIncorrect });
                           setOtpCode('');
                         } else {
                           setForgotStep('newpass');
                         }
                       } catch {
                         setForgotLoading(false);
-                        setErrors({ otp: 'Có lỗi xảy ra' });
+                        setErrors({ otp: ta.toastGenericError });
                       }
                     }}
                   >
                     {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Xác minh
+                    {ta.forgotVerify}
                   </Button>
                   <p className="text-sm text-center">
                     <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setForgotStep('input'); setOtpCode(''); setErrors({}); }}>
-                      ← Quay lại
+                      ← {ta.forgotBackToLogin}
                     </button>
                   </p>
                 </div>
@@ -899,11 +909,11 @@ export function MemberAuthForm() {
                   const sid = forgotIdentifier.trim();
                   const emailInput = forgotEmailInput.trim();
                   if (!sid) {
-                    setErrors(prev => ({ ...prev, forgotId: 'Vui lòng nhập MSSV' }));
+                    setErrors(prev => ({ ...prev, forgotId: ta.valStudentIdRequired }));
                     return;
                   }
                   if (!emailInput) {
-                    setErrors(prev => ({ ...prev, forgotEmail: 'Vui lòng nhập email' }));
+                    setErrors(prev => ({ ...prev, forgotEmail: ta.forgotEmailRequiredError }));
                     return;
                   }
                   setForgotLoading(true);
@@ -911,12 +921,12 @@ export function MemberAuthForm() {
                     const { data: registeredEmail } = await supabase.rpc('get_email_by_student_id', { _student_id: sid });
                     if (!registeredEmail) {
                       setForgotLoading(false);
-                      toast({ title: 'Không tìm thấy', description: 'MSSV này chưa được đăng ký trong hệ thống.', variant: 'destructive' });
+                      toast({ title: ta.toastIdNotExist, description: ta.forgotNoUserFound, variant: 'destructive' });
                       return;
                     }
                     if (registeredEmail.toLowerCase() !== emailInput.toLowerCase()) {
                       setForgotLoading(false);
-                      toast({ title: 'Không khớp', description: 'Email không khớp với MSSV đã đăng ký.', variant: 'destructive' });
+                      toast({ title: ta.forgotOtpError, description: ta.forgotEmailMismatch, variant: 'destructive' });
                       return;
                     }
 
@@ -927,11 +937,11 @@ export function MemberAuthForm() {
 
                     setForgotLoading(false);
                     if (error || !data?.success) {
-                      toast({ title: 'Lỗi', description: data?.error || 'Không thể gửi mã xác minh', variant: 'destructive' });
+                      toast({ title: ta.forgotOtpError, description: data?.error || ta.forgotCannotSendOtp, variant: 'destructive' });
                     } else {
                       setForgotEmail(registeredEmail);
                       setForgotStep('otp');
-                      toast({ title: 'Đã gửi mã', description: 'Mã OTP 6 số đã được gửi đến email của bạn.' });
+                      toast({ title: ta.forgotOtpSentToast, description: ta.forgotOtpSentToastDesc });
                     }
                   } catch {
                     setForgotLoading(false);
@@ -939,10 +949,10 @@ export function MemberAuthForm() {
                   }
                 }} className="space-y-4">
                    <p className="text-sm text-muted-foreground text-center">
-                     Nhập MSSV và email đã đăng ký. Hệ thống sẽ gửi mã OTP 6 số đến email của bạn.
+                     {ta.forgotEnterDesc}
                    </p>
                   <div className="space-y-2">
-                    <Label htmlFor="forgot-id">Mã số sinh viên (MSSV)</Label>
+                    <Label htmlFor="forgot-id">{ta.forgotStudentIdLabel}</Label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input id="forgot-id" type="text" placeholder="31241234567" className="pl-10" value={forgotIdentifier} onChange={(e) => setForgotIdentifier(e.target.value)} disabled={forgotLoading} autoFocus />
@@ -950,7 +960,7 @@ export function MemberAuthForm() {
                     {errors.forgotId && <p className="text-sm text-destructive">{errors.forgotId}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="forgot-email">Email đã đăng ký</Label>
+                    <Label htmlFor="forgot-email">{ta.forgotEmailLabel}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input id="forgot-email" type="email" placeholder="email@example.com" className="pl-10" value={forgotEmailInput} onChange={(e) => setForgotEmailInput(e.target.value)} disabled={forgotLoading} />
@@ -959,11 +969,11 @@ export function MemberAuthForm() {
                   </div>
                   <Button type="submit" className="w-full font-semibold bg-foreground text-background hover:bg-foreground/90" disabled={forgotLoading}>
                     {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-                    Gửi mã xác minh
+                    {ta.forgotSendButton}
                   </Button>
                   <p className="text-sm text-center">
                     <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setActiveTab('login'); setErrors({}); setForgotIdentifier(''); setForgotEmailInput(''); }}>
-                      ← Quay lại đăng nhập
+                      {ta.forgotBackToLogin}
                     </button>
                   </p>
                 </form>
@@ -972,13 +982,13 @@ export function MemberAuthForm() {
           ) : (
             <form onSubmit={handleRegister} className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="reg-full-name">Họ và tên <span className="text-destructive">*</span></Label>
+                <Label htmlFor="reg-full-name">{ta.fullNameLabel} <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="reg-full-name"
                     type="text"
-                    placeholder="Nguyễn Văn A"
+                    placeholder={ta.fullNamePlaceholder}
                     className="pl-10"
                     value={regFullName}
                     onChange={(e) => setRegFullName(e.target.value)}
@@ -988,7 +998,7 @@ export function MemberAuthForm() {
                 {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
               </div>
               <div className="space-y-2">
-                <Label>Đơn vị đào tạo <span className="text-destructive">*</span></Label>
+                <Label>{ta.institutionLabel} <span className="text-destructive">*</span></Label>
                 <Popover open={regInstitutionOpen} onOpenChange={setRegInstitutionOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -1006,7 +1016,7 @@ export function MemberAuthForm() {
                         <span className="truncate">
                           {regInstitution
                             ? INSTITUTIONS.find(i => i.name === regInstitution)?.name || regInstitution
-                            : "Chọn trường / đơn vị đào tạo"}
+                            : ta.institutionPlaceholder}
                         </span>
                       </div>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1015,13 +1025,13 @@ export function MemberAuthForm() {
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                     <Command shouldFilter={false}>
                       <CommandInput
-                        placeholder="Tìm trường..."
+                        placeholder={ta.institutionSearch}
                         value={regInstitutionSearch}
                         onValueChange={setRegInstitutionSearch}
                       />
                       <CommandList>
                         <ScrollArea className="h-[240px]">
-                          <CommandEmpty>Không tìm thấy trường nào.</CommandEmpty>
+                          <CommandEmpty>{ta.institutionEmpty}</CommandEmpty>
                           {(() => {
                             const filtered = searchInstitutions(regInstitutionSearch);
                             const groupedByRegion = new Map<string, typeof filtered>();
@@ -1062,7 +1072,7 @@ export function MemberAuthForm() {
                 {errors.institution && <p className="text-sm text-destructive">{errors.institution}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-student-id">Mã số sinh viên (MSSV) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="reg-student-id">{ta.studentIdLabel} <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -1094,13 +1104,13 @@ export function MemberAuthForm() {
                 {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-password">Mật khẩu <span className="text-destructive">*</span></Label>
+                <Label htmlFor="reg-password">{ta.passwordLabel} <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="reg-password"
                     type="password"
-                    placeholder="Tối thiểu 6 ký tự"
+                    placeholder={ta.passwordMinPlaceholder}
                     className="pl-10"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
@@ -1110,13 +1120,13 @@ export function MemberAuthForm() {
                 {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-confirm-password">Xác nhận mật khẩu <span className="text-destructive">*</span></Label>
+                <Label htmlFor="reg-confirm-password">{ta.confirmPasswordLabel} <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="reg-confirm-password"
                     type="password"
-                    placeholder="Nhập lại mật khẩu"
+                    placeholder={ta.confirmPasswordPlaceholder}
                     className="pl-10"
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
@@ -1133,23 +1143,25 @@ export function MemberAuthForm() {
                 policyContent={policyContent}
                 policyUpdatedAt={policyUpdatedAt}
                 error={errors.policy}
+                ta={ta}
+                dateLocale={dateLocale}
               />
 
               <Button type="submit" className="w-full font-semibold" disabled={isLoading}>
                 {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Tạo tài khoản
+                {ta.registerBtn}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Sau khi tạo, tài khoản cần được Admin duyệt trước khi sử dụng.
+                {ta.adminApprovalNote}
               </p>
               <p className="text-sm text-center text-muted-foreground">
-                Đã có tài khoản?{' '}
+                {ta.haveAccount}{' '}
                 <button
                   type="button"
                   className="text-primary hover:underline font-medium"
                   onClick={() => { setActiveTab('login'); setErrors({}); }}
                 >
-                  Đăng nhập
+                  {ta.loginNow}
                 </button>
               </p>
             </form>
@@ -1178,31 +1190,29 @@ export function MemberAuthForm() {
               )}
             </div>
             <h2 className="text-lg font-semibold text-center mb-2">
-              {blockPopup.type === 'maintenance' ? 'Hệ thống đang bảo trì' : 'Tài khoản bị tạm khóa'}
+              {blockPopup.type === 'maintenance' ? ta.blockMaintenanceTitle : ta.blockSuspendedTitle}
             </h2>
             <div className="text-sm text-muted-foreground text-center space-y-1 mb-6">
               {blockPopup.type === 'maintenance' && (
                 <>
-                  <p>{blockPopup.message || 'Hệ thống đang bảo trì, vui lòng quay lại sau.'}</p>
+                  <p>{blockPopup.message || ta.blockMaintenanceDesc}</p>
                   {blockPopup.endAt && (
                     <p className="text-xs">
-                      Dự kiến hoàn tất: {format(new Date(blockPopup.endAt), 'HH:mm dd/MM/yyyy', { locale: vi })}
+                      {ta.blockMaintenanceEstimate} {format(new Date(blockPopup.endAt), 'HH:mm dd/MM/yyyy', { locale: dateLocale })}
                     </p>
                   )}
                 </>
               )}
               {blockPopup.type === 'suspended' && (
                 <>
-                  <p>Tài khoản của bạn đã bị tạm khóa bởi quản trị viên.</p>
+                  <p>{ta.blockSuspendedDesc}</p>
                   {blockPopup.until && (
                     <p className="text-xs">
-                      Thời gian mở khóa: {format(new Date(blockPopup.until), 'HH:mm dd/MM/yyyy', { locale: vi })}
+                      {ta.blockSuspendedUntil} {format(new Date(blockPopup.until), 'HH:mm dd/MM/yyyy', { locale: dateLocale })}
                     </p>
                   )}
                   {blockPopup.reason && (
-                    <p className="text-xs">
-                      Lý do: {blockPopup.reason}
-                    </p>
+                    <p className="text-xs">{ta.blockSuspendedReason} {blockPopup.reason}</p>
                   )}
                 </>
               )}
@@ -1217,7 +1227,7 @@ export function MemberAuthForm() {
             </p>
             <div className="flex justify-center">
               <Button onClick={() => setBlockPopup(null)} className="min-w-[120px]">
-                Đã hiểu
+                {ta.blockUnderstood}
               </Button>
             </div>
           </div>

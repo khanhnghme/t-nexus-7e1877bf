@@ -4,12 +4,15 @@ import { ArrowLeft } from 'lucide-react';
 import { AuthForm } from '@/components/AuthForm';
 import RememberLoginScreen from '@/components/RememberLoginScreen';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import LoadingScreen from '@/components/LoadingScreen';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function Auth() {
   const { user, profile, roles, isLoading: authLoading, signOut, maintenanceMode, isAdmin } = useAuth();
+  const { translations: t, localizedPath: lp } = useLanguage();
 
-  if (authLoading) return <LoadingScreen message="Đang kiểm tra hệ thống..." />;
+  if (authLoading) return <LoadingScreen message={t.auth.checking} />;
 
   // During maintenance, non-admin users should NOT see RememberLoginScreen.
   // NOTE: We do NOT call signOut() here because during a fresh login, roles
@@ -42,10 +45,10 @@ export default function Auth() {
       {/* Header */}
       <header className="bg-card border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/">
+          <Link to={lp('/')}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Trang chủ
+              {t.auth.backHome}
             </Button>
           </Link>
           <span className="hidden sm:inline font-heading text-sm text-muted-foreground">
@@ -61,7 +64,10 @@ export default function Auth() {
 
       {/* Footer */}
       <footer className="border-t py-4 text-center text-sm text-muted-foreground bg-card">
-        © 2025 T-Nexus
+        <div className="flex items-center justify-center gap-4">
+          <span>{t.auth.footerCopyright}</span>
+          <LanguageToggle />
+        </div>
       </footer>
     </div>
   );

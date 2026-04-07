@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import uehLogo from '@/assets/t-nexus-logo-dark.png';
+import tNexusLogo from '@/assets/t-nexus-logo-dark.png';
 
 interface LoadingScreenProps {
   message?: string;
@@ -26,7 +26,7 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
       <div className="ls-logo-wrap">
         <div className="ls-ring" />
         <img
-          src={uehLogo}
+          src={tNexusLogo}
           alt="T-Nexus"
           className="ls-logo"
         />

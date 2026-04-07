@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, CheckCircle2, Share, Smartphone, Info } from 'lucide-react';
+import { ArrowLeft, Download, CheckCircle2, Share, Info } from 'lucide-react';
 import tNexusLogo from '@/assets/t-nexus-logo.png';
 import tNexusText from '@/assets/t-nexus-text.png';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function DownloadPage() {
+  const { translations: t, localizedPath: lp } = useLanguage();
+  const td = t.download;
+
   const [isInstalled, setIsInstalled] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showManual, setShowManual] = useState(false);
@@ -57,9 +62,9 @@ export default function DownloadPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Link to={lp('/')} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Trang chủ</span>
+            <span className="text-sm font-medium">{td.backHome}</span>
           </Link>
           <div className="flex items-center gap-2.5">
             <img src={tNexusLogo} alt="T-Nexus" className="h-7 w-7" />
@@ -72,7 +77,7 @@ export default function DownloadPage() {
         <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <img src={tNexusText} alt="T-Nexus" className="h-20 md:h-24 w-auto mx-auto mb-5" />
           <p className="text-muted-foreground text-base max-w-md mx-auto">
-            Cài đặt ứng dụng trực tiếp từ trình duyệt
+            {td.subtitle}
           </p>
         </div>
 
@@ -83,9 +88,9 @@ export default function DownloadPage() {
               <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">Bạn đang sử dụng ứng dụng</h2>
+              <h2 className="text-lg font-semibold text-foreground">{td.alreadyRunning}</h2>
               <p className="text-sm text-muted-foreground">
-                T-Nexus đã được cài đặt và đang chạy ở chế độ ứng dụng.
+                {td.alreadyRunningDesc}
               </p>
             </div>
           ) : isInstalled ? (
@@ -93,9 +98,9 @@ export default function DownloadPage() {
               <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <h2 className="text-lg font-semibold text-foreground">Đã cài đặt thành công!</h2>
+              <h2 className="text-lg font-semibold text-foreground">{td.installedSuccess}</h2>
               <p className="text-sm text-muted-foreground">
-                T-Nexus đã xuất hiện trên màn hình chính / desktop của bạn.
+                {td.installedSuccessDesc}
               </p>
             </div>
           ) : (
@@ -104,24 +109,24 @@ export default function DownloadPage() {
                 <Download className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-foreground mb-1">Cài đặt ứng dụng</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{td.installTitle}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Cài T-Nexus như một ứng dụng trên thiết bị của bạn. Không cần tải file, không cần cửa hàng ứng dụng.
+                  {td.installDesc}
                 </p>
               </div>
 
               {!showManual && (
                 <Button onClick={handleInstall} size="lg" className="w-full gap-2 rounded-lg font-medium">
-                  <Download className="w-4 h-4" /> Cài đặt ngay
+                  <Download className="w-4 h-4" /> {td.installNow}
                 </Button>
               )}
 
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60 justify-center">
                 <Badge variant="secondary" className="text-[10px] gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Miễn phí
+                  <CheckCircle2 className="w-3 h-3" /> {td.free}
                 </Badge>
                 <span>•</span>
-                <span>Nhẹ, không chiếm dung lượng</span>
+                <span>{td.lightweight}</span>
               </div>
 
               {/* Manual instructions — only shown after clicking install when no native prompt */}
@@ -129,22 +134,22 @@ export default function DownloadPage() {
                 <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-left space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
                     <Info className="w-4 h-4 shrink-0" />
-                    Cài đặt thủ công
+                    {td.manualTitle}
                   </div>
                   <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                    Trình duyệt chưa hỗ trợ cài tự động. Vui lòng làm theo hướng dẫn:
+                    {td.manualDesc}
                   </p>
                   {isIOS ? (
                     <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5 list-decimal list-inside leading-relaxed">
-                      <li>Nhấn nút <Share className="w-3 h-3 inline -mt-0.5" /> <strong>Chia sẻ</strong> ở thanh dưới Safari</li>
-                      <li>Chọn <strong>"Thêm vào Màn hình chính"</strong></li>
-                      <li>Nhấn <strong>"Thêm"</strong> để xác nhận</li>
+                      <li>{td.iosStep1Share} <Share className="w-3 h-3 inline -mt-0.5" /> <strong>{td.iosStep1ShareBtn}</strong> {td.iosStep1End}</li>
+                      <li>{td.iosStep2}</li>
+                      <li>{td.iosStep3}</li>
                     </ol>
                   ) : (
                     <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5 list-decimal list-inside leading-relaxed">
-                      <li>Nhấn biểu tượng <strong>⋮</strong> (menu) góc phải trên Chrome/Edge</li>
-                      <li>Chọn <strong>"Cài đặt ứng dụng"</strong> hoặc <strong>"Thêm vào Màn hình chính"</strong></li>
-                      <li>Nhấn <strong>"Cài đặt"</strong> để hoàn tất</li>
+                      <li>{td.androidStep1}</li>
+                      <li>{td.androidStep2}</li>
+                      <li>{td.androidStep3}</li>
                     </ol>
                   )}
                 </div>
@@ -154,8 +159,9 @@ export default function DownloadPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-14 text-xs text-muted-foreground/50">
-          <p>© 2025 T-Nexus · Bạn cần hỗ trợ? Liên hệ quản trị viên.</p>
+        <div className="text-center mt-14 text-xs text-muted-foreground/50 space-y-2">
+          <p>{td.footer}</p>
+          <LanguageToggle />
         </div>
       </main>
     </div>
