@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { TNexusLogo } from '@/components/TNexusLogo';
-import { EmailVerifyScreen } from '@/components/EmailVerifyScreen';
+import { OtpVerifyScreen } from '@/components/OtpVerifyScreen';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Hash, Lock, Users, Mail, User, UserPlus, LogIn, FileText, Shield, KeyRound, AlertTriangle, GraduationCap, Check, ChevronsUpDown, CheckCircle2 } from 'lucide-react';
@@ -442,14 +443,23 @@ export function MemberAuthForm() {
         const requireVerification = verifSetting?.value && (verifSetting.value as any).enabled === true;
 
         if (requireVerification) {
-          // User needs to verify email first — Supabase sends confirmation email automatically
-          if (signUpData?.user?.id) setRegUserId(signUpData.user.id);
+          // Send OTP code for email verification
+          if (signUpData?.user?.id) {
+            setRegUserId(signUpData.user.id);
+            try {
+              await supabase.functions.invoke('signup-email-otp', {
+                body: { action: 'send_code', email: regEmail.trim().toLowerCase(), user_id: signUpData.user.id },
+              });
+            } catch (e) {
+              console.warn('Failed to send OTP:', e);
+            }
+          }
           await supabase.auth.signOut({ scope: 'local' });
           setIsLoading(false);
           setRegisterSuccess('verify_email');
           toast({
             title: 'Kiểm tra email',
-            description: 'Vui lòng kiểm tra hộp thư để xác thực tài khoản.',
+            description: 'Mã OTP 6 số đã được gửi đến email của bạn.',
           });
         } else {
           // Auto-confirm user email via edge function (since auto_confirm is OFF globally)
@@ -528,12 +538,16 @@ export function MemberAuthForm() {
         <Card className={`w-full shadow-card-lg ${isVerifyEmail ? 'border-blue-300 dark:border-blue-700/50' : isApproved ? 'border-emerald-300 dark:border-emerald-700/50' : 'border-amber-300 dark:border-amber-700/50'}`}>
           <CardContent className={`${isVerifyEmail ? 'p-0' : 'pt-6 text-center space-y-4'}`}>
             {isVerifyEmail ? (
-              <EmailVerifyScreen
-                regStudentId={regStudentId}
-                regFullName={regFullName}
-                regEmail={regEmail}
+              <OtpVerifyScreen
+                email={regEmail}
                 userId={regUserId}
-                onRegisterAgain={() => {
+                fullName={regFullName}
+                studentId={regStudentId}
+                onVerified={() => {
+                  setRegisterSuccess(false);
+                  setActiveTab('login');
+                }}
+                onBack={() => {
                   setRegisterSuccess(false);
                   setActiveTab('register');
                 }}
@@ -661,8 +675,12 @@ export function MemberAuthForm() {
                 : activeTab === 'register'
                 ? 'Điền thông tin để đăng ký tài khoản mới'
                 : forgotStep === 'done'
-                ? 'Kiểm tra email để tiếp tục đặt lại mật khẩu'
-                : 'Xác minh danh tính để nhận liên kết khôi phục mật khẩu'}
+                ? 'Mật khẩu đã được đặt lại thành công'
+                : forgotStep === 'newpass'
+                ? 'Nhập mật khẩu mới cho tài khoản'
+                : forgotStep === 'otp'
+                ? 'Nhập mã OTP 6 số đã gửi đến email'
+                : 'Nhập MSSV và email để nhận mã xác minh'}
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -753,60 +771,143 @@ export function MemberAuthForm() {
               {forgotStep === 'done' ? (
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
-                    <KeyRound className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                   <h3 className="text-lg font-heading font-semibold">Đã gửi email khôi phục</h3>
-                   <p className="text-sm text-muted-foreground">
-                     Chúng tôi đã gửi liên kết đặt lại mật khẩu đến <span className="font-medium text-foreground">{forgotEmail}</span>.
-                     Vui lòng kiểm tra hộp thư đến và cả thư rác.
-                   </p>
-                   <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-left space-y-2">
-                     <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                       <AlertTriangle className="w-3.5 h-3.5" />
-                       Lưu ý quan trọng
-                     </p>
-                     <p className="text-xs text-amber-600 dark:text-amber-400/80 leading-relaxed">
-                       Vui lòng thao tác <span className="font-bold">100% trên máy tính</span> để đảm bảo thành công. Liên kết đặt lại mật khẩu có thể không hoạt động khi mở từ ứng dụng mail trên điện thoại.
-                     </p>
-                     <a
-                       href="https://mail.google.com/mail/"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                     >
-                       <Mail className="w-3.5 h-3.5" />
-                       Mở Gmail trên máy tính →
-                     </a>
-                   </div>
-                  <div className="grid gap-2">
-                    <Button
-                      className="w-full"
-                      onClick={() => {
-                        setActiveTab('login');
-                        setForgotStep('input');
-                        setForgotIdentifier('');
-                        setForgotEmailInput('');
-                        setForgotEmail('');
-                        setOtpCode('');
-                        setNewPassword('');
-                        setNewPasswordConfirm('');
+                  <h3 className="text-lg font-heading font-semibold text-emerald-700 dark:text-emerald-400">Đặt lại mật khẩu thành công!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Mật khẩu của bạn đã được cập nhật. Bạn có thể đăng nhập ngay bây giờ.
+                  </p>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      setActiveTab('login');
+                      setForgotStep('input');
+                      setForgotIdentifier('');
+                      setForgotEmailInput('');
+                      setForgotEmail('');
+                      setOtpCode('');
+                      setNewPassword('');
+                      setNewPasswordConfirm('');
+                      setErrors({});
+                    }}
+                  >
+                    → Đăng nhập ngay
+                  </Button>
+                </div>
+              ) : forgotStep === 'newpass' ? (
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  setErrors({});
+                  if (!newPassword || newPassword.length < 6) {
+                    setErrors({ newPass: 'Mật khẩu tối thiểu 6 ký tự' });
+                    return;
+                  }
+                  if (newPassword !== newPasswordConfirm) {
+                    setErrors({ newPassConfirm: 'Mật khẩu xác nhận không khớp' });
+                    return;
+                  }
+                  setForgotLoading(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('password-reset-otp', {
+                      body: { action: 'reset_password', email: forgotEmail, code: otpCode, new_password: newPassword },
+                    });
+                    setForgotLoading(false);
+                    if (error || !data?.success) {
+                      toast({ title: 'Lỗi', description: data?.error || 'Không thể đặt lại mật khẩu', variant: 'destructive' });
+                    } else {
+                      setForgotStep('done');
+                    }
+                  } catch {
+                    setForgotLoading(false);
+                    toast({ title: 'Lỗi hệ thống', description: 'Có lỗi xảy ra.', variant: 'destructive' });
+                  }
+                }} className="space-y-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Nhập mật khẩu mới cho tài khoản <span className="font-medium text-foreground">{forgotEmail}</span>
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-pass">Mật khẩu mới</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input id="new-pass" type="password" placeholder="Tối thiểu 6 ký tự" className="pl-10" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={forgotLoading} autoFocus />
+                    </div>
+                    {errors.newPass && <p className="text-sm text-destructive">{errors.newPass}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-pass-confirm">Xác nhận mật khẩu mới</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input id="new-pass-confirm" type="password" placeholder="Nhập lại mật khẩu" className="pl-10" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} disabled={forgotLoading} />
+                    </div>
+                    {errors.newPassConfirm && <p className="text-sm text-destructive">{errors.newPassConfirm}</p>}
+                  </div>
+                  <Button type="submit" className="w-full font-semibold" disabled={forgotLoading}>
+                    {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
+                    Đặt lại mật khẩu
+                  </Button>
+                  <p className="text-sm text-center">
+                    <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setForgotStep('otp'); setNewPassword(''); setNewPasswordConfirm(''); }}>
+                      ← Quay lại
+                    </button>
+                  </p>
+                </form>
+              ) : forgotStep === 'otp' ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Nhập mã 6 số đã gửi đến <span className="font-medium text-foreground">{forgotEmail}</span>
+                  </p>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(val) => {
+                        setOtpCode(val);
                         setErrors({});
                       }}
+                      disabled={forgotLoading}
                     >
-                      Quay lại đăng nhập
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setForgotStep('input');
-                        setErrors({});
-                      }}
-                    >
-                      Gửi lại email
-                    </Button>
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
                   </div>
+                  {errors.otp && <p className="text-sm text-destructive text-center">{errors.otp}</p>}
+                  <Button
+                    className="w-full font-semibold"
+                    disabled={forgotLoading || otpCode.length !== 6}
+                    onClick={async () => {
+                      setForgotLoading(true);
+                      setErrors({});
+                      try {
+                        const { data, error } = await supabase.functions.invoke('password-reset-otp', {
+                          body: { action: 'verify_code', email: forgotEmail, code: otpCode },
+                        });
+                        setForgotLoading(false);
+                        if (error || !data?.success) {
+                          setErrors({ otp: data?.error || 'Mã không đúng hoặc đã hết hạn' });
+                          setOtpCode('');
+                        } else {
+                          setForgotStep('newpass');
+                        }
+                      } catch {
+                        setForgotLoading(false);
+                        setErrors({ otp: 'Có lỗi xảy ra' });
+                      }
+                    }}
+                  >
+                    {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Xác minh
+                  </Button>
+                  <p className="text-sm text-center">
+                    <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setForgotStep('input'); setOtpCode(''); setErrors({}); }}>
+                      ← Quay lại
+                    </button>
+                  </p>
                 </div>
               ) : (
                 <form onSubmit={async (e) => {
@@ -836,17 +937,18 @@ export function MemberAuthForm() {
                       return;
                     }
 
-                    const { error } = await supabase.auth.resetPasswordForEmail(registeredEmail, {
-                      redirectTo: `${window.location.origin}/reset-password`,
+                    // Send OTP via edge function
+                    const { data, error } = await supabase.functions.invoke('password-reset-otp', {
+                      body: { action: 'send_code', email: registeredEmail },
                     });
 
                     setForgotLoading(false);
-                    if (error) {
-                      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+                    if (error || !data?.success) {
+                      toast({ title: 'Lỗi', description: data?.error || 'Không thể gửi mã xác minh', variant: 'destructive' });
                     } else {
                       setForgotEmail(registeredEmail);
-                      setForgotStep('done');
-                      toast({ title: 'Đã gửi email', description: 'Liên kết đặt lại mật khẩu đã được gửi tới email của bạn.' });
+                      setForgotStep('otp');
+                      toast({ title: 'Đã gửi mã', description: 'Mã OTP 6 số đã được gửi đến email của bạn.' });
                     }
                   } catch {
                     setForgotLoading(false);
@@ -854,17 +956,8 @@ export function MemberAuthForm() {
                   }
                 }} className="space-y-4">
                    <p className="text-sm text-muted-foreground text-center">
-                     Nhập MSSV và email đã đăng ký. Hệ thống sẽ gửi liên kết đặt lại mật khẩu đến email của bạn.
+                     Nhập MSSV và email đã đăng ký. Hệ thống sẽ gửi mã OTP 6 số đến email của bạn.
                    </p>
-                   <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
-                     <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                       <AlertTriangle className="w-3.5 h-3.5" />
-                       Lưu ý
-                     </p>
-                     <p className="text-xs text-amber-600 dark:text-amber-400/80 leading-relaxed">
-                       Vui lòng thao tác <span className="font-bold">100% trên máy tính</span>. Liên kết đặt lại mật khẩu có thể không mở được từ ứng dụng mail trên điện thoại.
-                     </p>
-                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="forgot-id">Mã số sinh viên (MSSV)</Label>
                     <div className="relative">
@@ -883,7 +976,7 @@ export function MemberAuthForm() {
                   </div>
                   <Button type="submit" className="w-full font-semibold bg-foreground text-background hover:bg-foreground/90" disabled={forgotLoading}>
                     {forgotLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-                    Gửi liên kết khôi phục
+                    Gửi mã xác minh
                   </Button>
                   <p className="text-sm text-center">
                     <button type="button" className="text-primary hover:underline font-medium" onClick={() => { setActiveTab('login'); setErrors({}); setForgotIdentifier(''); setForgotEmailInput(''); }}>
