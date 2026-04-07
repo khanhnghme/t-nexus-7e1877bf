@@ -32,7 +32,7 @@ export function AdminAuthForm() {
     if (user && isAdminOrLeader) {
       navigate('/dashboard');
     }
-  }, [user, isAdminOrLeader, navigate, showLoginTransition]);
+  }, [user, isAdminOrLeader, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
