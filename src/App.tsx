@@ -128,16 +128,15 @@ function AppRoutes() {
     return null;
   }
 
-  // Handle signup confirmation links → redirect to auth with verified flag
+  // Legacy: handle signup confirmation links (no longer used, but handle gracefully)
   const shouldRedirectSignup =
     typeof window !== "undefined" &&
     window.location.pathname === "/" &&
     recoveryHash.includes("type=signup");
 
   if (shouldRedirectSignup) {
-    // Sign out to prevent auto-login, then redirect to success screen
     supabase.auth.signOut({ scope: 'local' }).then(() => {
-      window.location.replace(`/auth?verified=true`);
+      window.location.replace(`/auth`);
     });
     return null;
   }
