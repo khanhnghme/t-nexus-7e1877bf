@@ -59,7 +59,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 import invitationIllustration from '@/assets/invitation-illustration.png';
-import { getDashboardPreloadCache, clearDashboardPreloadCache } from '@/hooks/useDashboardPreloader';
+
 import type { Group } from '@/types/database';
 
 const DEFAULT_PROJECT_LIMIT = 2;
@@ -93,41 +93,19 @@ export default function Dashboard() {
   const { user, profile, mustChangePassword, refreshProfile, isLeader, isAdmin } = useAuth();
   const streak = useLoginStreak(user?.id);
 
-  // Check if preloaded data is available (prefetched during login transition)
-  const preloadCache = useRef(getDashboardPreloadCache());
-  const hasPreload = preloadCache.current !== null;
-
-  const [groups, setGroups] = useState<Group[]>(() =>
-    hasPreload ? (preloadCache.current!.groups as Group[]) : []
-  );
-  const [isLoading, setIsLoading] = useState(!hasPreload);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showInvitationDialog, setShowInvitationDialog] = useState(false);
-  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>(() =>
-    hasPreload ? (preloadCache.current!.pendingInvitations as PendingInvitation[]) : []
-  );
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [processingInvitation, setProcessingInvitation] = useState<string | null>(null);
-  const [videoOpacity, setVideoOpacity] = useState(() =>
-    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.opacity : 0
-  );
-  const [videoUrl, setVideoUrl] = useState(() =>
-    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.url : ''
-  );
-  const [videoEnabled, setVideoEnabled] = useState(() =>
-    hasPreload && preloadCache.current!.videoSettings ? preloadCache.current!.videoSettings.enabled : false
-  );
-  const [ownedProjectCount, setOwnedProjectCount] = useState(() =>
-    hasPreload ? preloadCache.current!.ownedProjectCount : 0
-  );
-  const [joinedProjectCount, setJoinedProjectCount] = useState(() =>
-    hasPreload ? preloadCache.current!.joinedProjectCount : 0
-  );
-  const [hiddenProjectIds, setHiddenProjectIds] = useState<Set<string>>(() =>
-    hasPreload ? new Set(preloadCache.current!.hiddenProjectIds) : new Set()
-  );
-  const [pendingApprovalGroups, setPendingApprovalGroups] = useState<Group[]>(() =>
-    hasPreload ? (preloadCache.current!.pendingApprovalGroups as Group[]) : []
-  );
+  const [videoOpacity, setVideoOpacity] = useState(0);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [ownedProjectCount, setOwnedProjectCount] = useState(0);
+  const [joinedProjectCount, setJoinedProjectCount] = useState(0);
+  const [hiddenProjectIds, setHiddenProjectIds] = useState<Set<string>>(new Set());
+  const [pendingApprovalGroups, setPendingApprovalGroups] = useState<Group[]>([]);
   const [showFullScreenFire, setShowFullScreenFire] = useState(false);
   const [filter, setFilter] = useState<DashboardFilter>(() => {
     if (typeof window !== 'undefined' && user?.id) {
@@ -137,16 +115,7 @@ export default function Dashboard() {
   });
   const { isConnected } = useUserPresence('system-global');
 
-  // Clear preload cache after consuming it (one-time)
   useEffect(() => {
-    if (hasPreload) {
-      clearDashboardPreloadCache();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    // Skip video settings fetch if we already loaded from preload cache
-    if (hasPreload) return;
     const fetchVideoSettings = async () => {
       const { data } = await supabase
         .from('system_settings')
@@ -174,8 +143,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      // Skip all fetches if preload cache was consumed
-      if (hasPreload) return;
       fetchDashboardData();
       fetchProjectStats();
       fetchHiddenProjects();
