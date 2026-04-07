@@ -190,7 +190,7 @@ export function MemberAuthForm() {
     if (user && profile) {
       if (profile.is_approved) {
         // Don't navigate if pending login transition setup or during registration
-        if (pendingLoginTransitionRef.current || isRegisteringRef.current) return;
+        if (pendingLoginRef.current || isRegisteringRef.current) return;
         navigate('/dashboard');
       }
     }
@@ -331,15 +331,13 @@ export function MemberAuthForm() {
       }
 
       // Set ref BEFORE signIn to prevent race condition with useEffect navigation
-      if (loginAnimEnabled) {
-        pendingLoginTransitionRef.current = true;
-      }
+      pendingLoginRef.current = true;
 
       const { error } = await signIn(loginEmail, password);
       setIsLoading(false);
 
       if (error) {
-        pendingLoginTransitionRef.current = false;
+        pendingLoginRef.current = false;
         toast({
           title: 'Đăng nhập thất bại',
           description: error.message === 'Invalid login credentials' ? 'MSSV/Email hoặc mật khẩu không đúng' : error.message,
