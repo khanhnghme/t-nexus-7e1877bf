@@ -116,6 +116,7 @@ export default function Dashboard() {
   const { isConnected } = useUserPresence('system-global');
 
   useEffect(() => {
+    const fetchVideoSettings = async () => {
       const { data } = await supabase
         .from('system_settings')
         .select('value')
