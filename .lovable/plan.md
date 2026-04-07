@@ -1,36 +1,64 @@
 
 
-## Kế hoạch: Tinh chỉnh Landing page sát Notion hơn
+## Kế hoạch: Chuyển toàn bộ xác thực Email sang OTP 6 số (Đăng ký + Quên mật khẩu)
 
-### Vấn đề phát hiện (từ screenshot so sánh)
+### Hiện trạng
 
-1. **Chữ quá to**: Hero h1 đang `96px` — Notion chỉ khoảng `64-72px`. Section headings đang `52px` — Notion khoảng `40-44px`. Card titles đang `24px` — nên giảm còn `20px`.
-2. **Chữ rớt hàng nhiều**: Do font-size quá lớn, chữ bị wrap xuống hàng. Notion giữ heading trên 1-2 dòng max. Cần giảm font-size + tăng max-width.
-3. **"Get T-Nexus free" button quá tối**: Nút CTA trên header đang dùng trắng trên nền tối → khó nhìn. Notion dùng nút xanh dương nổi bật. Đổi sang `--landing-blue` background.
-4. **Resources icon bay lỗi**: Đang ở `right-[14%] top-[3%]` → chồng lên header. Chuyển sang trái, đặt dưới "AI Assistant" (`left-[2%] top-[52%]`).
-5. **Ảnh trong card quá to/thô**: Aspect ratio `5/3` quá lớn. Notion dùng ảnh nhỏ gọn hơn, khoảng `aspect-[16/9]` với max-height giới hạn. Giảm kích thước ảnh + thêm max-height.
-6. **Product Workspace — ảnh chồng lên chữ**: Wide cards có `h-[17rem] md:h-[22rem]` nhưng ảnh absolute tràn lên text. Cần tăng spacing giữa text và ảnh area, hoặc dùng layout khác (ảnh bên phải thay vì chồng).
+1. **Đăng ký**: Dùng Supabase confirmation link → `EmailVerifyScreen` polling `check-email-verified`
+2. **Quên mật khẩu**: Dùng `supabase.auth.resetPasswordForEmail()` → gửi link → redirect `/reset-password` → đổi mật khẩu qua Supabase session
+3. **Edge function `password-reset-otp`** đã tồn tại nhưng CHƯA được dùng trong UI (forgot flow vẫn dùng link)
+4. **Bảng `password_reset_codes`** đã tồn tại trong DB
 
-### Thay đổi cụ thể trong `src/pages/Landing.tsx`
+### Thay đổi
 
-**a) Hero h1**: `text-[96px]` → `text-[72px]`, `sm:text-[68px]` → `sm:text-[56px]`, `text-[50px]` → `text-[42px]`
+#### 1. Database Migration: Tạo bảng `email_verification_codes`
+- Cấu trúc: `id`, `user_id`, `email`, `code` (6 số), `expires_at` (5 phút), `used`, `attempts` (max 5), `created_at`
+- RLS: service role only (edge function truy cập)
 
-**b) Section headings**: `md:text-[52px]` → `md:text-[42px]`, `text-[34px]` → `text-[28px]`
+#### 2. Edge Function mới: `signup-email-otp`
+- **`send_code`**: Tạo OTP 6 số → lưu DB → gửi email qua Resend (đã có `RESEND_API_KEY`) từ `T-Nexus <noreply@t-nexus.io.vn>`
+- **`verify_code`**: Kiểm tra OTP đúng + chưa hết hạn + chưa dùng + attempts < 5. Đúng → `admin.updateUserById(user_id, { email_confirm: true })`
+- **`resend_code`**: Rate limit 60s, invalidate code cũ, tạo + gửi mã mới
+- Email HTML chuyên nghiệp: logo T-Nexus, mã OTP nổi bật, cảnh báo 5 phút, không chia sẻ
 
-**c) Card titles**: `text-[24px]` → `text-[20px]`
+#### 3. Cập nhật `password-reset-otp` Edge Function
+- Thay đổi cách gửi email: dùng Resend API trực tiếp thay vì `enqueue_email` (đang lỗi vì dùng domain sai)
+- From: `T-Nexus <noreply@t-nexus.io.vn>`
+- Giữ nguyên logic 3 action: `send_code`, `verify_code`, `reset_password`
 
-**d) Subtitle text**: `text-[18px] md:text-[20px]` → `text-[16px] md:text-[18px]`
+#### 4. Frontend: `OtpVerifyScreen.tsx` (thay thế `EmailVerifyScreen`)
+- Dùng component `InputOTP` có sẵn (6 slot)
+- Countdown 5 phút, số lần nhập sai còn lại (max 5)
+- Nút "Gửi lại mã" với countdown 60s
+- Verify thành công → hiển thị thông báo + nút đăng nhập
 
-**e) CTA button (header + hero)**: Background color from `--landing-hero-foreground` (white) to `--landing-blue` (xanh dương sáng). Text color vẫn trắng.
+#### 5. Cập nhật `MemberAuthForm.tsx`
+- **Đăng ký**: Sau signUp → gọi `signup-email-otp` send_code → hiện `OtpVerifyScreen` thay vì `EmailVerifyScreen`
+- **Quên mật khẩu**: Thay `resetPasswordForEmail` bằng flow OTP 4 bước:
+  - `input` → nhập MSSV + email
+  - `otp` → nhập OTP 6 số (gọi `password-reset-otp` verify_code)
+  - `newpass` → nhập mật khẩu mới (gọi `password-reset-otp` reset_password)
+  - `done` → thành công
+- Xóa thông báo "thao tác 100% trên máy tính" (không cần link nữa)
 
-**f) Resources signal**: Đổi `positionClass` từ `right-[14%] top-[3%]` sang `left-[2%] top-[52%]` (bên trái, dưới AI Assistant)
+#### 6. Cập nhật `App.tsx`
+- Xóa/giảm logic redirect `type=signup` confirmation link
 
-**g) Card images**: Thay `aspect-[5/3]` bằng `aspect-[16/9] max-h-[220px]` cho single cards. Wide cards: tăng container height hoặc chuyển sang layout flex row thay vì absolute positioning.
+#### 7. Config
+- Thêm `[functions.signup-email-otp]` verify_jwt = false vào `supabase/config.toml`
+- Thêm `[functions.password-reset-otp]` verify_jwt = false (nếu chưa có)
 
-**h) Wide card layout fix**: Thay absolute images bằng flex layout `flex-row` với ảnh chiếm 60% width, tránh overlap text.
-
-**i) Description text**: `text-[15px] leading-7` → `text-[14px] leading-6` cho gọn hơn.
+### Giữ nguyên
+- Toàn bộ flow đăng nhập, auth context, roles, approval
+- `ResetPassword.tsx` page (vẫn dùng cho recovery link nếu ai đó còn link cũ)
+- `auto-confirm-user` edge function (dùng khi `requireVerification = false`)
 
 ### File thay đổi
-- `src/pages/Landing.tsx` — tất cả typography, positioning, button color, card layout
+1. **Migration SQL** — tạo bảng `email_verification_codes`
+2. `supabase/functions/signup-email-otp/index.ts` — mới
+3. `supabase/functions/password-reset-otp/index.ts` — sửa gửi email qua Resend
+4. `supabase/config.toml` — thêm function configs
+5. `src/components/OtpVerifyScreen.tsx` — mới
+6. `src/components/MemberAuthForm.tsx` — cập nhật cả đăng ký + quên mật khẩu
+7. `src/App.tsx` — cleanup confirmation link logic
 
