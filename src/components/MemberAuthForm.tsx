@@ -442,14 +442,23 @@ export function MemberAuthForm() {
         const requireVerification = verifSetting?.value && (verifSetting.value as any).enabled === true;
 
         if (requireVerification) {
-          // User needs to verify email first — Supabase sends confirmation email automatically
-          if (signUpData?.user?.id) setRegUserId(signUpData.user.id);
+          // Send OTP code for email verification
+          if (signUpData?.user?.id) {
+            setRegUserId(signUpData.user.id);
+            try {
+              await supabase.functions.invoke('signup-email-otp', {
+                body: { action: 'send_code', email: regEmail.trim().toLowerCase(), user_id: signUpData.user.id },
+              });
+            } catch (e) {
+              console.warn('Failed to send OTP:', e);
+            }
+          }
           await supabase.auth.signOut({ scope: 'local' });
           setIsLoading(false);
           setRegisterSuccess('verify_email');
           toast({
             title: 'Kiểm tra email',
-            description: 'Vui lòng kiểm tra hộp thư để xác thực tài khoản.',
+            description: 'Mã OTP 6 số đã được gửi đến email của bạn.',
           });
         } else {
           // Auto-confirm user email via edge function (since auto_confirm is OFF globally)
