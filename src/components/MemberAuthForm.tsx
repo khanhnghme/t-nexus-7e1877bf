@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Hash, Lock, Users, Mail, User, UserPlus, LogIn, FileText, Shield, KeyRound, AlertTriangle, GraduationCap, Check, ChevronsUpDown, CheckCircle2 } from 'lucide-react';
+import { Loader2, Hash, Lock, Users, Mail, User, UserPlus, LogIn, FileText, Shield, KeyRound, AlertTriangle, GraduationCap, Check, ChevronsUpDown, CheckCircle2, Wrench, ShieldAlert } from 'lucide-react';
 import uehLogoWhite from '@/assets/t-nexus-text-white.png';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -146,7 +146,7 @@ export function MemberAuthForm() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isEmailVerified = searchParams.get('verified') === 'true';
-  const { signIn, user, profile, isLoading: authLoading } = useAuth();
+  const { signIn, signOut, user, profile, isLoading: authLoading, maintenanceMode, isAdmin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -183,6 +183,15 @@ export function MemberAuthForm() {
   // Policy
   const [policyContent, setPolicyContent] = useState('');
   const [policyUpdatedAt, setPolicyUpdatedAt] = useState<string | null>(null);
+
+  // Block popup (maintenance / suspended)
+  const [blockPopup, setBlockPopup] = useState<{
+    type: 'maintenance' | 'suspended';
+    message?: string;
+    endAt?: string | null;
+    until?: string | null;
+    reason?: string | null;
+  } | null>(null);
   
   const pendingLoginRef = useRef(false);
 
@@ -191,10 +200,12 @@ export function MemberAuthForm() {
       if (profile.is_approved) {
         // Don't navigate if pending login transition setup or during registration
         if (pendingLoginRef.current || isRegisteringRef.current) return;
+        // Don't navigate if maintenance mode is on and user is not admin
+        if (maintenanceMode && !isAdmin) return;
         navigate('/dashboard');
       }
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, navigate, maintenanceMode, isAdmin]);
 
   // Fetch policy
   useEffect(() => {
@@ -332,28 +343,101 @@ export function MemberAuthForm() {
 
       // Set ref BEFORE signIn to prevent race condition with useEffect navigation
       pendingLoginRef.current = true;
+      // Set session flag to prevent Auth.tsx from showing RememberLoginScreen mid-flow
+      sessionStorage.setItem('t-nexus_login_in_progress', 'true');
 
       const { error } = await signIn(loginEmail, password);
-      setIsLoading(false);
 
       if (error) {
         pendingLoginRef.current = false;
+        sessionStorage.removeItem('t-nexus_login_in_progress');
+        setIsLoading(false);
         toast({
           title: 'Đăng nhập thất bại',
           description: error.message === 'Invalid login credentials' ? 'MSSV/Email hoặc mật khẩu không đúng' : error.message,
           variant: 'destructive',
         });
       } else {
+        // --- Post-signIn checks: maintenance & suspension ---
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!currentUser) throw new Error('no user');
+
+          // Fetch roles
+          const { data: userRoles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', currentUser.id);
+          const isUserAdmin = userRoles?.some(r => r.role === 'admin') ?? false;
+
+          // Fetch fresh suspension status
+          const { data: freshProfile } = await supabase
+            .from('profiles')
+            .select('suspended_until, suspension_reason')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+          const isSuspended = freshProfile?.suspended_until
+            ? new Date(freshProfile.suspended_until).getTime() > Date.now()
+            : false;
+
+          // Fetch maintenance status
+          const { data: maintenanceData } = await supabase
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'maintenance_mode')
+            .maybeSingle();
+          const maintenanceVal = maintenanceData?.value as { enabled?: boolean; message?: string; end_at?: string } | null;
+          const isMaintenanceOn = maintenanceVal?.enabled ?? false;
+
+          // Block: Suspended account
+          if (isSuspended) {
+            pendingLoginRef.current = false;
+            sessionStorage.removeItem('t-nexus_login_in_progress');
+            setIsLoading(false);
+            setBlockPopup({
+              type: 'suspended',
+              until: freshProfile?.suspended_until,
+              reason: freshProfile?.suspension_reason,
+            });
+            // Use context signOut to immediately clear user/profile state
+            await signOut();
+            return;
+          }
+
+          // Block: Maintenance mode (admin bypasses)
+          if (isMaintenanceOn && !isUserAdmin) {
+            pendingLoginRef.current = false;
+            sessionStorage.removeItem('t-nexus_login_in_progress');
+            setIsLoading(false);
+            setBlockPopup({
+              type: 'maintenance',
+              message: maintenanceVal?.message,
+              endAt: maintenanceVal?.end_at,
+            });
+            // Use context signOut to immediately clear user/profile state
+            await signOut();
+            return;
+          }
+        } catch (checkErr) {
+          console.warn('Post-login check error:', checkErr);
+        }
+
+        setIsLoading(false);
         // Save remember login preference
         if (rememberLogin) {
           localStorage.setItem('t-nexus_remember_login', 'true');
         } else {
           localStorage.removeItem('t-nexus_remember_login');
         }
+        pendingLoginRef.current = false;
+        sessionStorage.removeItem('t-nexus_login_in_progress');
         toast({ title: 'Đăng nhập thành công', description: 'Chào mừng bạn quay lại!' });
         navigate('/dashboard');
       }
     } catch (err) {
+      pendingLoginRef.current = false;
+      sessionStorage.removeItem('t-nexus_login_in_progress');
       setIsLoading(false);
       toast({ title: 'Lỗi hệ thống', description: 'Có lỗi xảy ra. Vui lòng thử lại sau.', variant: 'destructive' });
     }
@@ -555,6 +639,7 @@ export function MemberAuthForm() {
   }
 
   return (
+    <>
     <div className="w-full max-w-md">
       <div className="mb-6 flex flex-col items-center gap-2">
         <TNexusLogo variant="text" width={120} />
@@ -1072,5 +1157,64 @@ export function MemberAuthForm() {
         </CardContent>
       </Card>
     </div>
+
+      {/* Block Popup: Maintenance / Suspended */}
+      {blockPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Overlay */}
+          <div className="fixed inset-0 bg-black/80" onClick={() => setBlockPopup(null)} />
+          {/* Content */}
+          <div className="relative z-50 w-full max-w-sm mx-4 bg-background border rounded-lg shadow-lg p-6 animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="flex flex-col items-center gap-3 mb-4">
+              {blockPopup.type === 'maintenance' && (
+                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <Wrench className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+                </div>
+              )}
+              {blockPopup.type === 'suspended' && (
+                <div className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <ShieldAlert className="w-7 h-7 text-red-600 dark:text-red-400" />
+                </div>
+              )}
+            </div>
+            <h2 className="text-lg font-semibold text-center mb-2">
+              {blockPopup.type === 'maintenance' ? 'Hệ thống đang bảo trì' : 'Tài khoản bị tạm khóa'}
+            </h2>
+            <div className="text-sm text-muted-foreground text-center space-y-1 mb-6">
+              {blockPopup.type === 'maintenance' && (
+                <>
+                  <p>{blockPopup.message || 'Hệ thống đang bảo trì, vui lòng quay lại sau.'}</p>
+                  {blockPopup.endAt && (
+                    <p className="text-xs">
+                      Dự kiến hoàn tất: {format(new Date(blockPopup.endAt), 'HH:mm dd/MM/yyyy', { locale: vi })}
+                    </p>
+                  )}
+                </>
+              )}
+              {blockPopup.type === 'suspended' && (
+                <>
+                  <p>Tài khoản của bạn đã bị tạm khóa bởi quản trị viên.</p>
+                  {blockPopup.until && (
+                    <p className="text-xs">
+                      Thời gian mở khóa: {format(new Date(blockPopup.until), 'HH:mm dd/MM/yyyy', { locale: vi })}
+                    </p>
+                  )}
+                  {blockPopup.reason && (
+                    <p className="text-xs">
+                      Lý do: {blockPopup.reason}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex justify-center">
+              <Button onClick={() => setBlockPopup(null)} className="min-w-[120px]">
+                Đã hiểu
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -14,6 +14,7 @@ interface AuthContextType {
   isLeader: boolean;
   isApproved: boolean;
   mustChangePassword: boolean;
+  maintenanceMode: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, studentId: string, fullName: string, institution?: string) => Promise<{ data: any; error: Error | null }>;
   signOut: () => Promise<void>;
@@ -224,39 +225,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isApproved = profile?.is_approved ?? false;
   const mustChangePassword = profile?.must_change_password ?? false;
 
-  // Check if user is suspended
-  const isSuspended = profile?.suspended_until
-    ? new Date(profile.suspended_until).getTime() > Date.now()
-    : false;
-
-
-  // Auto sign-out suspended/maintenance users and store reason in sessionStorage
-  useEffect(() => {
-    if (!user || !profile || isAdmin) return;
-    const pathname = window.location.pathname;
-    const isPublicAuthRoute = pathname === '/auth' || pathname.startsWith('/auth/') || pathname === '/reset-password';
-    if (isPublicAuthRoute) return;
-
-    if (maintenanceMode) {
-      sessionStorage.setItem('t-nexus_auth_block', JSON.stringify({
-        type: 'maintenance',
-        message: maintenanceMessage,
-        endAt: maintenanceEndAt,
-      }));
-      signOut().then(() => { window.location.href = '/auth'; });
-    } else if (isSuspended) {
-      sessionStorage.setItem('t-nexus_auth_block', JSON.stringify({
-        type: 'suspended',
-        until: profile.suspended_until,
-        reason: profile.suspension_reason,
-      }));
-      signOut().then(() => { window.location.href = '/auth'; });
-    }
-  }, [user, profile, isAdmin, maintenanceMode, isSuspended]);
-
   const contextValue = {
     user, session, profile, roles, isLoading,
     isAdmin, isLeader, isApproved, mustChangePassword,
+    maintenanceMode,
     signIn, signUp, signOut, refreshProfile,
   };
 

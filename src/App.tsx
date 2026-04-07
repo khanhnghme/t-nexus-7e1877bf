@@ -70,6 +70,7 @@ function ProtectedLayout() {
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/auth" replace />;
   if (profile && !profile.is_approved) return <Navigate to="/auth" replace />;
+
   return (
     <DashboardLayoutProvider>
       <ProtectedLayoutInner />
