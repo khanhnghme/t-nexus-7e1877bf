@@ -597,6 +597,15 @@ export const en = {
     androidStep3: 'Tap "Install" to finish',
     footer: `© ${new Date().getFullYear()} T-Nexus · Need help? Contact your administrator.`,
   },
+
+  policy: {
+    backHome: 'Home',
+    sidebarTitle: 'System Policy',
+    lastUpdated: 'Updated',
+    loading: 'Loading policy...',
+    noContent: 'No policy content available.',
+    footerNote: 'Please read the terms carefully before using the system.',
+  },
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

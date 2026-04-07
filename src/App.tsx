@@ -42,6 +42,7 @@ import CalendarPage from "./pages/Calendar";
 import Tips from "./pages/Tips";
 import DownloadPage from "./pages/Download";
 import Pricing from "./pages/Pricing";
+import Policy from "./pages/Policy";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +116,7 @@ function AppRoutes() {
         <Route path="/auth" element={<ForceLightMode><Auth /></ForceLightMode>} />
         <Route path="/pricing" element={<ForceLightMode><Pricing /></ForceLightMode>} />
         <Route path="/download" element={<ForceLightMode><DownloadPage /></ForceLightMode>} />
+        <Route path="/policy" element={<ForceLightMode><Policy /></ForceLightMode>} />
 
         {/* ═══ Localized public routes — Vietnamese (/vi) ═══ */}
         <Route path="/vi">
@@ -122,6 +124,7 @@ function AppRoutes() {
           <Route path="auth" element={<ForceLightMode><Auth /></ForceLightMode>} />
           <Route path="pricing" element={<ForceLightMode><Pricing /></ForceLightMode>} />
           <Route path="download" element={<ForceLightMode><DownloadPage /></ForceLightMode>} />
+          <Route path="policy" element={<ForceLightMode><Policy /></ForceLightMode>} />
         </Route>
 
         {/* ═══ Non-localized public routes ═══ */}

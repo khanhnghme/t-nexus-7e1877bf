@@ -586,4 +586,13 @@ export const vi: Translations = {
     androidStep3: 'Nhấn "Cài đặt" để hoàn tất',
     footer: `© ${new Date().getFullYear()} T-Nexus · Bạn cần hỗ trợ? Liên hệ quản trị viên.`,
   },
+
+  policy: {
+    backHome: 'Trang chủ',
+    sidebarTitle: 'Chính sách hệ thống',
+    lastUpdated: 'Cập nhật',
+    loading: 'Đang tải chính sách...',
+    noContent: 'Chưa có nội dung chính sách.',
+    footerNote: 'Vui lòng đọc kỹ các điều khoản trước khi sử dụng hệ thống.',
+  },
 };

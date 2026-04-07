@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Mail, Clock, ChevronRight, User, Calendar, Eye, Shield, BellRing } from 'lucide-react';
+import { X, Clock, ChevronRight, User, Calendar, Eye, Shield, BellRing, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -69,6 +69,7 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const [dbViewCounts, setDbViewCounts] = useState<Record<string, number>>({});
+  const [cornerOpen, setCornerOpen] = useState(false);
 
   const getSessionId = useCallback(() => {
     let sid = sessionStorage.getItem('mn_session_id');
@@ -127,7 +128,7 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
 
         // For pre_login: use localStorage-based view count
         const viewCount = getViewCount(notif.id, notif.updated_at);
-        
+
         if (viewCount >= MAX_POPUP_VIEWS) {
           let isPermanentlyDismissed = false;
           const sessionId = getSessionId();
@@ -140,7 +141,7 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
           isPermanentlyDismissed = !!d;
           if (isPermanentlyDismissed) continue;
         }
-        
+
         undismissed.push(notif);
       }
 
@@ -218,7 +219,7 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
         // DB-based view counting for authenticated users
         const currentCount = dbViewCounts[notifId] || 0;
         const newCount = currentCount + 1;
-        
+
         if (currentCount === 0) {
           // First view — insert
           await supabase.from('notification_dismissals').insert([{
@@ -234,9 +235,9 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
             .eq('notification_id', notifId)
             .eq('user_id', userId);
         }
-        
+
         setDbViewCounts(prev => ({ ...prev, [notifId]: newCount }));
-        
+
         // If reached max, remove from notifications list entirely
         if (newCount >= MAX_POPUP_VIEWS) {
           setNotifications(prev => prev.filter(n => n.id !== notifId));
@@ -245,7 +246,7 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
         // localStorage-based for pre_login
         incrementViewCount(notifId, notif.updated_at);
         const newCount = getViewCount(notifId, notif.updated_at);
-        
+
         if (newCount >= MAX_POPUP_VIEWS) {
           const dismissal: any = { notification_id: notifId };
           dismissal.session_id = getSessionId();
@@ -269,39 +270,84 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
   const canClose = expandedId ? (countdowns[expandedId] ?? 1) <= 0 : false;
   const countdown = expandedId ? (countdowns[expandedId] ?? 0) : 0;
 
+  // Check which context we're in for styling
+  const isDark = mode === 'pre_login';
+
   return (
     <>
       {/* ════ Popup list for notifications with < 5 views ════ */}
       {!expandedNotif && popupNotifications.length > 0 && (
-        <div className="fixed bottom-20 right-4 z-[100] w-full max-w-sm animate-in slide-in-from-bottom-4 duration-300">
-          <div className="rounded-2xl shadow-2xl overflow-hidden border border-border bg-card">
-            {/* Accent top bar */}
-            <div className="h-1" style={{ background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(36 85% 52%), hsl(var(--primary)))' }} />
-            <div className="px-4 py-3 flex items-center gap-2 border-b border-border">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(36 85% 52%), hsl(25 80% 48%))' }}>
-                <Mail className="w-3.5 h-3.5 text-white" />
+        <div className="fixed bottom-6 right-4 z-[100] w-full max-w-[340px] animate-in slide-in-from-bottom-4 duration-300">
+          <div
+            className="rounded-xl overflow-hidden shadow-lg"
+            style={{
+              backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'hsl(var(--card))',
+              backdropFilter: 'blur(20px)',
+              border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid hsl(var(--border))',
+            }}
+          >
+            {/* Header */}
+            <div
+              className="px-3.5 py-2.5 flex items-center gap-2"
+              style={{
+                borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid hsl(var(--border))',
+              }}
+            >
+              <div className="w-5 h-5 rounded-md flex items-center justify-center bg-blue-500/15">
+                <Info className="w-3 h-3 text-blue-400" />
               </div>
-              <span className="text-sm font-bold text-foreground">
-                Thông báo bắt buộc ({popupNotifications.length})
+              <span
+                className="text-xs font-semibold"
+                style={{ color: isDark ? 'rgba(255,255,255,0.9)' : 'hsl(var(--foreground))' }}
+              >
+                Thông báo bắt buộc
+              </span>
+              <span
+                className="text-[10px] ml-auto"
+                style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'hsl(var(--muted-foreground))' }}
+              >
+                {popupNotifications.length}
               </span>
             </div>
-            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
+            {/* Items */}
+            <div className="max-h-[240px] overflow-y-auto">
               {popupNotifications.map(notif => {
-                const views = getViewCount(notif.id, notif.updated_at);
+                const views = getEffectiveViewCount(notif.id, notif.updated_at);
                 return (
                   <button
                     key={notif.id}
-                    className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-center justify-between gap-2"
+                    className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 transition-colors"
+                    style={{
+                      borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid hsl(var(--border) / 0.5)',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.04)' : 'hsl(var(--muted) / 0.5)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                     onClick={() => handleExpand(notif.id)}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'hsl(36 85% 52%)' }} />
-                      <span className="text-sm font-medium text-foreground truncate">{notif.title}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-muted-foreground">{views + 1}/{MAX_POPUP_VIEWS}</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </div>
+                    <div
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: 'hsl(217 91% 60%)' }}
+                    />
+                    <span
+                      className="text-[13px] font-medium truncate flex-1"
+                      style={{ color: isDark ? 'rgba(255,255,255,0.85)' : 'hsl(var(--foreground))' }}
+                    >
+                      {notif.title}
+                    </span>
+                    <span
+                      className="text-[10px] shrink-0"
+                      style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'hsl(var(--muted-foreground))' }}
+                    >
+                      {views + 1}/{MAX_POPUP_VIEWS}
+                    </span>
+                    <ChevronRight
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: isDark ? 'rgba(255,255,255,0.25)' : 'hsl(var(--muted-foreground))' }}
+                    />
                   </button>
                 );
               })}
@@ -312,116 +358,168 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
 
       {/* ════ Corner badge for notifications with >= 5 views ════ */}
       {!expandedNotif && cornerNotifications.length > 0 && popupNotifications.length === 0 && (
-        <div className="fixed top-[6.25rem] z-[90] animate-in slide-in-from-top-2 duration-300 right-4 2xl:right-[calc((100vw-1400px)/2+1rem)]"
-          style={{ maxWidth: 'calc(100vw - 2rem)' }}>
-          <style>{`
-            @keyframes bell-ring {
-              0% { transform: rotate(0deg); }
-              10% { transform: rotate(14deg); }
-              20% { transform: rotate(-12deg); }
-              30% { transform: rotate(10deg); }
-              40% { transform: rotate(-8deg); }
-              50% { transform: rotate(5deg); }
-              60% { transform: rotate(-3deg); }
-              70% { transform: rotate(0deg); }
-              100% { transform: rotate(0deg); }
-            }
-          `}</style>
-          <button
-            className="relative flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
-            onClick={() => handleExpand(cornerNotifications[0].id)}
+        <div
+          className="absolute top-14 z-[90] animate-in slide-in-from-top-2 duration-300"
+          style={{
+            maxWidth: 'calc(100vw - 3rem)',
+            right: 'max(1.5rem, calc((100vw - 1320px) / 2 + 1.5rem))',
+            marginTop: '0.15rem' // Moved up to sit tightly near the button
+          }}
+        >
+          {/* Collapsible card */}
+          <div
+            className="rounded-[10px] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+            style={{
+              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'hsl(var(--card))',
+              backdropFilter: 'blur(20px)',
+              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid hsl(var(--border))',
+              maxWidth: '220px',
+            }}
           >
-            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, hsl(36 85% 52%), hsl(25 80% 48%))' }}>
-              <BellRing className="w-4 h-4 text-white" style={{ animation: 'bell-ring 1.5s ease-in-out infinite' }} />
-            </div>
-            <span className="text-xs font-medium text-foreground max-w-[150px] truncate">
-              {cornerNotifications.length === 1 ? cornerNotifications[0].title : `${cornerNotifications.length} thông báo`}
-            </span>
-            {cornerNotifications.length > 1 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow" style={{ background: 'hsl(36 85% 52%)' }}>
-                {cornerNotifications.length}
+            {/* Toggle trigger */}
+            <button
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 transition-colors"
+              onClick={() => setCornerOpen(!cornerOpen)}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.04)' : 'hsl(var(--muted) / 0.5)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <div className="relative">
+                <div className="w-5 h-5 rounded-[6px] flex items-center justify-center bg-blue-500/15">
+                  <BellRing className="w-[11px] h-[11px] text-blue-400" />
+                </div>
+                {cornerNotifications.length > 1 && (
+                  <span
+                    className="absolute -top-1 -right-1 w-[14px] h-[14px] rounded-full text-[7.5px] font-bold flex items-center justify-center text-white"
+                    style={{ backgroundColor: 'hsl(217 91% 60%)' }}
+                  >
+                    {cornerNotifications.length}
+                  </span>
+                )}
+              </div>
+              <span
+                className="text-[11px] font-medium truncate flex-1 text-left"
+                style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'hsl(var(--foreground))' }}
+              >
+                {cornerNotifications.length === 1 ? cornerNotifications[0].title : `${cornerNotifications.length} thông báo`}
               </span>
-            )}
-          </button>
+              {cornerOpen ? (
+                <ChevronUp className="w-3 h-3 shrink-0" style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'hsl(var(--muted-foreground))' }} />
+              ) : (
+                <ChevronDown className="w-3 h-3 shrink-0" style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'hsl(var(--muted-foreground))' }} />
+              )}
+            </button>
+
+            {/* Collapsible content */}
+            <div
+              className="overflow-hidden transition-all duration-300 ease-in-out"
+              style={{
+                maxHeight: cornerOpen ? `${cornerNotifications.length * 36 + 4}px` : '0px',
+                opacity: cornerOpen ? 1 : 0,
+              }}
+            >
+              <div
+                style={{
+                  borderTop: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid hsl(var(--border))',
+                  paddingTop: '2px',
+                  paddingBottom: '2px',
+                }}
+              >
+                {cornerNotifications.map(notif => (
+                  <button
+                    key={notif.id}
+                    className="w-full text-left px-2.5 py-[6px] flex items-center gap-1.5 transition-colors"
+                    onMouseEnter={e => {
+                      e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.03)' : 'hsl(var(--muted) / 0.5)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                    onClick={() => handleExpand(notif.id)}
+                  >
+                    <div
+                      className="w-[5px] h-[5px] rounded-full shrink-0"
+                      style={{ backgroundColor: 'hsl(217 91% 60%)' }}
+                    />
+                    <span
+                      className="text-[10px] font-medium truncate"
+                      style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'hsl(var(--foreground))' }}
+                    >
+                      {notif.title}
+                    </span>
+                    <ChevronRight
+                      className="w-2.5 h-2.5 ml-auto shrink-0"
+                      style={{ color: isDark ? 'rgba(255,255,255,0.2)' : 'hsl(var(--muted-foreground))' }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ════ Expanded detail — letter style ════ */}
+      {/* ════ Expanded detail ════ */}
       {expandedNotif && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-2xl mx-4 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            
-            {/* Header — gradient with pattern */}
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(36 80% 48%), hsl(25 75% 45%))' }} />
-              <div
-                className="absolute inset-0 opacity-[0.06]"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M20 20h20v20H20z' fill-opacity='.1'/%3E%3Cpath d='M0 0h20v20H0z' fill-opacity='.1'/%3E%3C/g%3E%3C/svg%3E")`,
-                }}
-              />
-              <div className="relative px-6 py-5 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/20">
-                  <Mail className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-bold text-white leading-snug">{expandedNotif.title}</h2>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-white/70">
-                    <span className="inline-flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {senderNames[expandedNotif.created_by] || 'Quản trị viên'}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {format(new Date(expandedNotif.created_at), "HH:mm — dd/MM/yyyy", { locale: vi })}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      Yêu cầu xem {expandedNotif.min_view_seconds}s
-                    </span>
-                    {expandedNotif.expires_at && (
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Hết hạn {format(new Date(expandedNotif.expires_at), "dd/MM/yyyy", { locale: vi })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all shrink-0 ${
-                    !canClose ? 'opacity-20 cursor-not-allowed' : ''
-                  }`}
-                  disabled={!canClose}
-                  onClick={() => handleDismiss(expandedNotif.id)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-in fade-in duration-200"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
+        >
+          <div
+            className="relative w-full max-w-xl mx-4 overflow-hidden animate-in zoom-in-95 duration-200"
+            style={{
+              backgroundColor: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '16px',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.15)',
+            }}
+          >
 
-            {/* Sender badge bar */}
-            <div className="px-6 py-2.5 border-b border-border bg-muted/30 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Shield className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[11px] text-muted-foreground font-medium">
-                  Thông báo từ Ban quản trị hệ thống — Bắt buộc đọc
-                </span>
+            {/* Header */}
+            <div className="px-5 py-4 flex items-start gap-3" style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-blue-500/10">
+                <Shield className="w-4 h-4 text-blue-500" />
               </div>
-              {(() => {
-                const views = getViewCount(expandedNotif.id, expandedNotif.updated_at);
-                return views < MAX_POPUP_VIEWS ? (
-                  <span className="text-[10px] text-muted-foreground/60">
-                    Lần xem {views + 1}/{MAX_POPUP_VIEWS}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-[15px] font-semibold text-foreground leading-snug">{expandedNotif.title}</h2>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <User className="w-3 h-3" />
+                    {senderNames[expandedNotif.created_by] || 'Quản trị viên'}
                   </span>
-                ) : null;
-              })()}
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Calendar className="w-3 h-3" />
+                    {format(new Date(expandedNotif.created_at), "HH:mm — dd/MM/yyyy", { locale: vi })}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Eye className="w-3 h-3" />
+                    {expandedNotif.min_view_seconds}s bắt buộc
+                  </span>
+                  {expandedNotif.expires_at && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      Hết hạn {format(new Date(expandedNotif.expires_at), "dd/MM/yyyy", { locale: vi })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 transition-all ${!canClose ? 'opacity-20 cursor-not-allowed' : ''
+                  }`}
+                disabled={!canClose}
+                onClick={() => handleDismiss(expandedNotif.id)}
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
             </div>
 
             {/* Content */}
-            <div className="px-6 py-6 max-h-[45vh] overflow-y-auto">
-              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-primary prose-a:text-accent prose-strong:text-foreground">
+            <div className="px-5 py-5 max-h-[45vh] overflow-y-auto">
+              <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-a:text-blue-500 prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-p:leading-relaxed text-[13.5px]">
                 <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>
                   {expandedNotif.content}
                 </ReactMarkdown>
@@ -429,38 +527,48 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-muted/30 border-t border-border flex items-center justify-between">
+            <div
+              className="px-5 py-3 flex items-center justify-between"
+              style={{ borderTop: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--muted) / 0.3)' }}
+            >
               {!canClose ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4 text-primary animate-pulse" />
-                    <span>Vui lòng đọc hết nội dung</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Vui lòng đọc hết</span>
                   </div>
-                  <div className="relative w-9 h-9">
-                    <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+                  {/* Circular countdown */}
+                  <div className="relative w-7 h-7">
+                    <svg className="w-7 h-7 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--muted))" strokeWidth="2.5" />
                       <circle
                         cx="18" cy="18" r="15" fill="none"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth="3"
+                        stroke="hsl(217 91% 60%)"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeDasharray={`${(1 - countdown / expandedNotif.min_view_seconds) * 94.2} 94.2`}
                         className="transition-all duration-1000 ease-linear"
                       />
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-primary">
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-blue-500">
                       {countdown}
                     </span>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  ✅ Bạn có thể đóng thông báo này
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="w-4 h-4 rounded-full bg-emerald-500/15 flex items-center justify-center text-[10px]">✓</span>
+                  Có thể đóng
                 </p>
               )}
               <div className="flex gap-2">
                 {canClose && popupNotifications.length > 1 && (
-                  <Button variant="outline" size="sm" onClick={() => setExpandedId(null)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs rounded-lg"
+                    onClick={() => setExpandedId(null)}
+                  >
                     Quay lại
                   </Button>
                 )}
@@ -468,13 +576,13 @@ export default function MandatoryNotification({ mode, userId }: MandatoryNotific
                   onClick={() => handleDismiss(expandedNotif.id)}
                   disabled={!canClose}
                   size="sm"
-                  className="gap-1.5"
+                  className="h-7 text-xs rounded-lg gap-1"
+                  style={{
+                    backgroundColor: canClose ? 'hsl(217 91% 60%)' : undefined,
+                    color: canClose ? '#fff' : undefined,
+                  }}
                 >
-                  {canClose ? (
-                    <>✓ Đã đọc xong</>
-                  ) : (
-                    <>Chờ {countdown}s</>
-                  )}
+                  {canClose ? '✓ Đã đọc' : `Chờ ${countdown}s`}
                 </Button>
               </div>
             </div>
