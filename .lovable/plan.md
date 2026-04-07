@@ -1,64 +1,69 @@
 
 
-## Kế hoạch: Chuyển toàn bộ xác thực Email sang OTP 6 số (Đăng ký + Quên mật khẩu)
+## Plan: Remove Lovable Default Email System, Use Only Resend via Custom OTP
 
-### Hiện trạng
+### Current State Analysis
 
-1. **Đăng ký**: Dùng Supabase confirmation link → `EmailVerifyScreen` polling `check-email-verified`
-2. **Quên mật khẩu**: Dùng `supabase.auth.resetPasswordForEmail()` → gửi link → redirect `/reset-password` → đổi mật khẩu qua Supabase session
-3. **Edge function `password-reset-otp`** đã tồn tại nhưng CHƯA được dùng trong UI (forgot flow vẫn dùng link)
-4. **Bảng `password_reset_codes`** đã tồn tại trong DB
+The project has **two parallel email systems** running:
 
-### Thay đổi
+1. **Custom OTP system (Resend)** — `signup-email-otp` and `password-reset-otp` edge functions. These send emails directly via Resend API from `T-Nexus <noreply@t-nexus.io.vn>`. This is the system you configured and want to keep.
 
-#### 1. Database Migration: Tạo bảng `email_verification_codes`
-- Cấu trúc: `id`, `user_id`, `email`, `code` (6 số), `expires_at` (5 phút), `used`, `attempts` (max 5), `created_at`
-- RLS: service role only (edge function truy cập)
+2. **Lovable managed email system** — `auth-email-hook` intercepts Supabase Auth events (signup, recovery, magic link, etc.) and enqueues emails through `process-email-queue` which sends via Lovable's `@lovable.dev/email-js`. This uses the domain `notify.uehers.teamworks` and Lovable's infrastructure. This is the system you want removed.
 
-#### 2. Edge Function mới: `signup-email-otp`
-- **`send_code`**: Tạo OTP 6 số → lưu DB → gửi email qua Resend (đã có `RESEND_API_KEY`) từ `T-Nexus <noreply@t-nexus.io.vn>`
-- **`verify_code`**: Kiểm tra OTP đúng + chưa hết hạn + chưa dùng + attempts < 5. Đúng → `admin.updateUserById(user_id, { email_confirm: true })`
-- **`resend_code`**: Rate limit 60s, invalidate code cũ, tạo + gửi mã mới
-- Email HTML chuyên nghiệp: logo T-Nexus, mã OTP nổi bật, cảnh báo 5 phút, không chia sẻ
+The problem: When Supabase Auth triggers events (signup confirmation, password recovery), the `auth-email-hook` catches them and sends **duplicate emails** through Lovable's system — even though your custom OTP functions already handle these.
 
-#### 3. Cập nhật `password-reset-otp` Edge Function
-- Thay đổi cách gửi email: dùng Resend API trực tiếp thay vì `enqueue_email` (đang lỗi vì dùng domain sai)
-- From: `T-Nexus <noreply@t-nexus.io.vn>`
-- Giữ nguyên logic 3 action: `send_code`, `verify_code`, `reset_password`
+### What Will Be Changed
 
-#### 4. Frontend: `OtpVerifyScreen.tsx` (thay thế `EmailVerifyScreen`)
-- Dùng component `InputOTP` có sẵn (6 slot)
-- Countdown 5 phút, số lần nhập sai còn lại (max 5)
-- Nút "Gửi lại mã" với countdown 60s
-- Verify thành công → hiển thị thông báo + nút đăng nhập
+#### 1. Neutralize `auth-email-hook` — make it a silent no-op
+- Rewrite `auth-email-hook/index.ts` to simply return `{ success: true }` without sending any email
+- This stops Lovable's email system from intercepting auth events
+- We keep the function file (can't fully delete it as Lovable routes auth events to it) but it does nothing
 
-#### 5. Cập nhật `MemberAuthForm.tsx`
-- **Đăng ký**: Sau signUp → gọi `signup-email-otp` send_code → hiện `OtpVerifyScreen` thay vì `EmailVerifyScreen`
-- **Quên mật khẩu**: Thay `resetPasswordForEmail` bằng flow OTP 4 bước:
-  - `input` → nhập MSSV + email
-  - `otp` → nhập OTP 6 số (gọi `password-reset-otp` verify_code)
-  - `newpass` → nhập mật khẩu mới (gọi `password-reset-otp` reset_password)
-  - `done` → thành công
-- Xóa thông báo "thao tác 100% trên máy tính" (không cần link nữa)
+#### 2. Remove `process-email-queue` edge function
+- Delete `supabase/functions/process-email-queue/index.ts` — no longer needed since no emails go through the Lovable queue
+- Remove its config from `supabase/config.toml`
 
-#### 6. Cập nhật `App.tsx`
-- Xóa/giảm logic redirect `type=signup` confirmation link
+#### 3. Remove `_shared/email-templates/` directory
+- Delete all 6 template files (`signup.tsx`, `recovery.tsx`, `magic-link.tsx`, `invite.tsx`, `email-change.tsx`, `reauthentication.tsx`)
+- These were only used by the old `auth-email-hook`
 
-#### 7. Config
-- Thêm `[functions.signup-email-otp]` verify_jwt = false vào `supabase/config.toml`
-- Thêm `[functions.password-reset-otp]` verify_jwt = false (nếu chưa có)
+#### 4. Clean up `supabase/config.toml`
+- Remove `[functions.process-email-queue]` entry
 
-### Giữ nguyên
-- Toàn bộ flow đăng nhập, auth context, roles, approval
-- `ResetPassword.tsx` page (vẫn dùng cho recovery link nếu ai đó còn link cũ)
-- `auto-confirm-user` edge function (dùng khi `requireVerification = false`)
+#### 5. Keep intact (no changes needed)
+- `signup-email-otp/index.ts` — already uses Resend correctly
+- `password-reset-otp/index.ts` — already uses Resend correctly
+- `auto-confirm-user/index.ts` — used when `requireVerification = false`
+- `MemberAuthForm.tsx` — already calls custom OTP functions
+- `OtpVerifyScreen.tsx` — already uses custom OTP functions
+- All frontend auth flow — already wired to custom OTP
 
-### File thay đổi
-1. **Migration SQL** — tạo bảng `email_verification_codes`
-2. `supabase/functions/signup-email-otp/index.ts` — mới
-3. `supabase/functions/password-reset-otp/index.ts` — sửa gửi email qua Resend
-4. `supabase/config.toml` — thêm function configs
-5. `src/components/OtpVerifyScreen.tsx` — mới
-6. `src/components/MemberAuthForm.tsx` — cập nhật cả đăng ký + quên mật khẩu
-7. `src/App.tsx` — cleanup confirmation link logic
+### Email Flow After Fix
+
+```text
+Signup (verification ON):
+  User registers → signup-email-otp send_code → Resend API → OTP email from noreply@t-nexus.io.vn
+
+Signup (verification OFF):
+  User registers → auto-confirm-user → no email sent
+
+Forgot Password:
+  User requests reset → password-reset-otp send_code → Resend API → OTP email from noreply@t-nexus.io.vn
+
+Auth-email-hook (if Supabase triggers it):
+  Receives event → returns success → does NOT send any email
+```
+
+### Files Changed
+1. `supabase/functions/auth-email-hook/index.ts` — rewrite to no-op
+2. `supabase/functions/process-email-queue/` — delete entirely
+3. `supabase/functions/_shared/email-templates/` — delete all 6 files
+4. `supabase/config.toml` — remove process-email-queue config
+
+### Files Kept As-Is
+- `signup-email-otp/index.ts` (Resend)
+- `password-reset-otp/index.ts` (Resend)
+- `auto-confirm-user/index.ts`
+- `src/components/MemberAuthForm.tsx`
+- `src/components/OtpVerifyScreen.tsx`
 
