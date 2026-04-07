@@ -17,7 +17,7 @@ function jsonResponse(data: Record<string, unknown>, status = 200) {
   });
 }
 
-function buildResetOtpEmailHtml(otpCode: string): string {
+function buildResetOtpHtml(otpCode: string): string {
   return buildBrandedOtpEmail({
     title: "Đặt lại mật khẩu",
     subtitle: "Yêu cầu khôi phục tài khoản",
@@ -28,7 +28,41 @@ function buildResetOtpEmailHtml(otpCode: string): string {
   });
 }
 
-      // Send email via Resend gateway
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const body = await req.json();
+    const { action, email, code, new_password } = body;
+
+    // ===== SEND OTP CODE =====
+    if (action === "send_code") {
+      if (!email) {
+        return jsonResponse({ error: "Email is required" }, 400);
+      }
+
+      const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      await supabase
+        .from("password_reset_codes")
+        .update({ used: true })
+        .eq("email", email.toLowerCase())
+        .eq("used", false);
+
+      await supabase.from("password_reset_codes").insert({
+        email: email.toLowerCase(),
+        code: otpCode,
+        expires_at: expiresAt,
+      });
+
       const emailRes = await fetch(`${RESEND_API_URL}/emails`, {
         method: "POST",
         headers: {
@@ -39,7 +73,7 @@ function buildResetOtpEmailHtml(otpCode: string): string {
           from: FROM_EMAIL,
           to: [email.toLowerCase()],
           subject: `Mã xác minh đặt lại mật khẩu: ${otpCode}`,
-          html: buildResetOtpEmailHtml(otpCode),
+          html: buildResetOtpHtml(otpCode),
         }),
       });
 
@@ -49,10 +83,7 @@ function buildResetOtpEmailHtml(otpCode: string): string {
         return jsonResponse({ error: "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau." }, 500);
       }
 
-      return jsonResponse({
-        success: true,
-        message: "Mã xác minh đã được gửi đến email của bạn",
-      });
+      return jsonResponse({ success: true, message: "Mã xác minh đã được gửi đến email của bạn" });
     }
 
     // ===== VERIFY CODE =====
@@ -127,7 +158,6 @@ function buildResetOtpEmailHtml(otpCode: string): string {
         .update({ used: true })
         .eq("id", codeData.id);
 
-      // Sync demo password
       await supabase.from("demo_passwords").upsert({
         user_id: targetUser.id,
         plain_password: new_password,
