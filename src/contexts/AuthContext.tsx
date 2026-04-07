@@ -229,9 +229,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ? new Date(profile.suspended_until).getTime() > Date.now()
     : false;
 
-  const handleUnlocked = useCallback(() => {
-    refreshProfile();
-  }, [user]);
 
   // Auto sign-out suspended/maintenance users and store reason in sessionStorage
   useEffect(() => {
