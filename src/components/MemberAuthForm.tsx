@@ -184,9 +184,7 @@ export function MemberAuthForm() {
   const [policyContent, setPolicyContent] = useState('');
   const [policyUpdatedAt, setPolicyUpdatedAt] = useState<string | null>(null);
   
-  // Login animation - always enabled
-  const loginAnimEnabled = true;
-  const pendingLoginTransitionRef = useRef(false);
+  const pendingLoginRef = useRef(false);
 
   useEffect(() => {
     if (user && profile) {
